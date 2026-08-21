@@ -1,0 +1,75 @@
+@baseUrl = http://localhost:4000
+@adminToken = change-me-before-sharing
+
+### Healthcheck
+GET {{baseUrl}}/health
+
+### Comportamento automático
+POST {{baseUrl}}/v1/analyze
+Content-Type: application/json
+x-client-id: candidate-local
+
+{
+  "review_id": "review-001",
+  "company_id": "company-001",
+  "rating": 2,
+  "text": "O pedido demorou muito e chegou frio."
+}
+
+### Sucesso determinístico
+POST {{baseUrl}}/v1/analyze
+Content-Type: application/json
+x-mock-scenario: success
+
+{
+  "review_id": "review-002",
+  "rating": 5,
+  "text": "Pizza deliciosa e atendimento excelente. Recomendo!"
+}
+
+### Resposta lenta
+POST {{baseUrl}}/v1/analyze
+Content-Type: application/json
+x-mock-scenario: slow
+
+{
+  "review_id": "review-003",
+  "rating": 3,
+  "text": "Visitei o restaurante durante a tarde."
+}
+
+### Erro temporário 503
+POST {{baseUrl}}/v1/analyze
+Content-Type: application/json
+x-mock-scenario: server-error
+
+{
+  "review_id": "review-004",
+  "rating": 1,
+  "text": "O atendimento foi péssimo."
+}
+
+### Rate limit 429
+POST {{baseUrl}}/v1/analyze
+Content-Type: application/json
+x-mock-scenario: rate-limit
+
+{
+  "review_id": "review-005",
+  "rating": 4,
+  "text": "Ambiente ótimo."
+}
+
+### Payload inválido
+POST {{baseUrl}}/v1/analyze
+Content-Type: application/json
+x-mock-scenario: success
+
+{
+  "review_id": "review-invalid",
+  "text": "x"
+}
+
+### Reiniciar contadores
+POST {{baseUrl}}/_admin/reset
+Authorization: Bearer {{adminToken}}

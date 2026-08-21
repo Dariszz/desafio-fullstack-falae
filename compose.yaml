@@ -1,0 +1,28 @@
+services:
+  mock-analysis-api:
+    build:
+      context: ./mock-analysis-api
+    container_name: desafio-mock-analysis-api
+    restart: unless-stopped
+    ports:
+      - "${MOCK_API_PORT:-4000}:4000"
+    environment:
+      PORT: 4000
+      MIN_DELAY_MS: ${MIN_DELAY_MS:-250}
+      MAX_DELAY_MS: ${MAX_DELAY_MS:-900}
+      FAIL_EVERY_N: ${FAIL_EVERY_N:-5}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-10}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-10000}
+      RETRY_AFTER_SECONDS: ${RETRY_AFTER_SECONDS:-2}
+      SLOW_EXTRA_DELAY_MS: ${SLOW_EXTRA_DELAY_MS:-2500}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me-before-sharing}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
