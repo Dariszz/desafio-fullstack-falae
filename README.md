@@ -5,7 +5,7 @@
 
 ## Falaê! Que bom ter você por aqui 👋
 
-Na Falaê, feedback não é só dado: é o ponto de partida para melhorar a
+No Falaê, feedback não é só dado: é o ponto de partida para melhorar a
 experiência do cliente. Neste desafio, você vai construir uma pequena aplicação
 full stack que percorre esse caminho — da tela em que a avaliação chega até o
 resultado da análise, sem perder dados nem travar a operação.
@@ -328,5 +328,3 @@ podemos abrir a tela e percorrer o fluxo completo.
 - facilidade para executar o projeto;
 - capacidade de explicar decisões e trade-offs.
 
-No fim, queremos uma solução que continue ouvindo mesmo quando algo falha do
-outro lado. Bem Falaê! 💬

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "API fake da Falaê para o desafio de processamento assíncrono de avaliações.",
+  "description": "API fake do Falaê para o desafio de processamento assíncrono de avaliações.",
   "engines": {
     "node": ">=24.12.0"
   },
