@@ -303,6 +303,9 @@ Envie um repositório Git com:
 - testes;
 - README com comandos, URL da interface, decisões, limitações e próximos passos.
 
+Quando o projeto estiver pronto, envie o link do repositório pelo
+[formulário de entrega](https://forms.gle/E1QYX6gk9ZLTbej29).
+
 Queremos conseguir iniciar o projeto, de preferência, com um único comando:
 
 ```bash
