@@ -1,0 +1,123 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type {
+  CreateReviewResponse,
+  ReviewDetail,
+  ReviewsListResponse,
+} from '@falae/contracts';
+import { CreateReviewDto } from './dto/create-review.dto.js';
+import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
+import {
+  toApiReviewStatus,
+  toDatabaseReviewStatus,
+  toReviewDetail,
+  toReviewSummary,
+} from './review.mapper.js';
+import { ReviewsRepository } from './reviews.repository.js';
+
+@Injectable()
+export class ReviewsService {
+  constructor(private readonly repository: ReviewsRepository) {}
+
+  async create(
+    dto: CreateReviewDto,
+    idempotencyKey: string | undefined,
+  ): Promise<CreateReviewResponse> {
+    const data = {
+      externalId: dto.external_id.trim(),
+      companyId: dto.company_id.trim(),
+      rating: dto.rating,
+      comment: dto.comment.trim(),
+    };
+    const normalizedKey = idempotencyKey?.trim();
+
+    if (!normalizedKey) {
+      throw new BadRequestException('O header Idempotency-Key é obrigatório.');
+    }
+
+    if (normalizedKey.length > 100) {
+      throw new BadRequestException(
+        'O header Idempotency-Key deve ter no máximo 100 caracteres.',
+      );
+    }
+
+    if (normalizedKey !== data.externalId) {
+      throw new BadRequestException(
+        'Idempotency-Key deve ser igual ao campo external_id.',
+      );
+    }
+
+    if (data.comment.length < 3) {
+      throw new BadRequestException(
+        'comment deve ter ao menos 3 caracteres desconsiderando espaços externos.',
+      );
+    }
+
+    const result = await this.repository.createOrGet(data);
+
+    if (!result.created && !this.hasSameContent(result.review, data)) {
+      throw new ConflictException(
+        'Já existe uma avaliação com o mesmo external_id e conteúdo diferente.',
+      );
+    }
+
+    return {
+      id: result.review.id,
+      external_id: result.review.externalId,
+      status: toApiReviewStatus(result.review.status),
+      duplicate: !result.created,
+    };
+  }
+
+  async list(query: ListReviewsQueryDto): Promise<ReviewsListResponse> {
+    const { page, limit } = query;
+    const result = await this.repository.list({
+      status: query.status ? toDatabaseReviewStatus(query.status) : undefined,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: result.reviews.map(toReviewSummary),
+      meta: {
+        page,
+        limit,
+        total: result.total,
+        total_pages: Math.ceil(result.total / limit),
+      },
+    };
+  }
+
+  async findOne(id: string): Promise<ReviewDetail> {
+    const review = await this.repository.findById(id);
+
+    if (!review) {
+      throw new NotFoundException('Avaliação não encontrada.');
+    }
+
+    return toReviewDetail(review);
+  }
+
+  private hasSameContent(
+    review: {
+      companyId: string;
+      rating: number;
+      comment: string;
+    },
+    data: {
+      companyId: string;
+      rating: number;
+      comment: string;
+    },
+  ): boolean {
+    return (
+      review.companyId === data.companyId &&
+      review.rating === data.rating &&
+      review.comment === data.comment
+    );
+  }
+}

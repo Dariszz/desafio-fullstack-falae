@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { AppController } from './app.controller.js';
 
 describe('AppController', () => {
