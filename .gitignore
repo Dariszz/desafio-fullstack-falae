@@ -1,6 +1,11 @@
 .env
+.env.*
+!.env.example
 node_modules/
 coverage/
 dist/
+.vite/
+.eslintcache
 .DS_Store
 *.log
+*.tsbuildinfo

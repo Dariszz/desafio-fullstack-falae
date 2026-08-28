@@ -1,0 +1,6 @@
+coverage
+dist
+node_modules
+mock-analysis-api
+README.md
+compose.yaml

@@ -1,0 +1,26 @@
+:root {
+  color: #1c2b25;
+  background: #f6f3ea;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 6rem 1.5rem;
+}
+
+.eyebrow {
+  color: #147d64;
+  font-weight: 700;
+}
+
+h1 {
+  max-width: 12ch;
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
+  line-height: 0.95;
+}
