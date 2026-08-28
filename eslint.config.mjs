@@ -21,9 +21,18 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['packages/database/prisma.config.ts'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+  {
+    files: ['packages/database/prisma.config.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
     },
   },
 );

@@ -13,6 +13,10 @@
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "db:generate": "npm run generate --workspace @falae/database",
+    "db:migrate": "npm run migrate --workspace @falae/database",
+    "db:migrate:deploy": "npm run migrate:deploy --workspace @falae/database",
+    "postinstall": "npm run db:generate",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",

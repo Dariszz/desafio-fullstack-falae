@@ -1,0 +1,63 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ReviewStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum OutboxEventType {
+  REVIEW_CREATED
+}
+
+model Review {
+  id                  String        @id @default(uuid()) @db.Uuid
+  externalId          String        @map("external_id") @db.VarChar(100)
+  companyId           String        @map("company_id") @db.VarChar(100)
+  rating              Int           @db.SmallInt
+  comment             String        @db.Text
+  status              ReviewStatus  @default(PENDING)
+  attempts            Int           @default(0)
+  lastError           String?       @map("last_error") @db.Text
+  analysisSentiment   String?       @map("analysis_sentiment") @db.VarChar(20)
+  analysisCategory    String?       @map("analysis_category") @db.VarChar(50)
+  analysisConfidence  Decimal?      @map("analysis_confidence") @db.Decimal(5, 4)
+  analysisKeywords    Json?         @map("analysis_keywords")
+  analysisRequestId   String?       @map("analysis_request_id") @db.VarChar(100)
+  analysisProcessedAt DateTime?     @map("analysis_processed_at") @db.Timestamptz(3)
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  processedAt         DateTime?     @map("processed_at") @db.Timestamptz(3)
+  outboxEvents        OutboxEvent[]
+
+  @@unique([companyId, externalId], map: "reviews_company_id_external_id_key")
+  @@index([status, createdAt], map: "reviews_status_created_at_idx")
+  @@map("reviews")
+}
+
+model OutboxEvent {
+  id          String          @id @default(uuid()) @db.Uuid
+  reviewId    String          @map("review_id") @db.Uuid
+  type        OutboxEventType
+  payload     Json
+  attempts    Int             @default(0)
+  availableAt DateTime        @default(now()) @map("available_at") @db.Timestamptz(3)
+  publishedAt DateTime?       @map("published_at") @db.Timestamptz(3)
+  lastError   String?         @map("last_error") @db.Text
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  review      Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, type], map: "outbox_events_review_id_type_key")
+  @@index([publishedAt, availableAt], map: "outbox_events_pending_idx")
+  @@map("outbox_events")
+}

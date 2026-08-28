@@ -1,4 +1,41 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: desafio-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-falae}
+      POSTGRES_USER: ${POSTGRES_USER:-falae}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-falae_local}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  redis:
+    image: redis:8-alpine
+    container_name: desafio-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
   mock-analysis-api:
     build:
       context: ./mock-analysis-api
@@ -26,3 +63,7 @@ services:
       timeout: 3s
       retries: 10
       start_period: 3s
+
+volumes:
+  postgres-data:
+  redis-data:
