@@ -1,330 +1,286 @@
-# Falaê! | Desafio técnico — Full Stack Pleno
+# Falaê! — Processamento resiliente de avaliações
 
-> Feedback bom vira ação. Este desafio é sobre garantir que ele chegue lá —
-> mesmo quando alguma coisa falha pelo caminho.
+Aplicação full stack para receber avaliações sem depender da disponibilidade do
+serviço externo de análise. A API persiste o feedback e responde imediatamente;
+o processamento acontece em segundo plano e seu resultado pode ser acompanhado
+pela interface.
 
-## Falaê! Que bom ter você por aqui 👋
+## Executar o projeto
 
-No Falaê, feedback não é só dado: é o ponto de partida para melhorar a
-experiência do cliente. Neste desafio, você vai construir uma pequena aplicação
-full stack que percorre esse caminho — da tela em que a avaliação chega até o
-resultado da análise, sem perder dados nem travar a operação.
+O único requisito é ter Docker com Docker Compose disponível.
 
-O recorte é proposital. Não esperamos um sistema completo nem uma arquitetura
-cheia de camadas só para impressionar. Queremos entender como você organiza uma
-solução enxuta, reage quando o caminho feliz deixa de ser feliz e explica as
-decisões que tomou.
-
-## Seu desafio
-
-Construa uma aplicação full stack que:
-
-1. permita cadastrar avaliações por uma interface web;
-2. persista cada avaliação;
-3. agende seu processamento assíncrono;
-4. consulte a API fake de análise deste repositório;
-5. armazene o resultado da análise;
-6. exiba na interface o status e o resultado de cada avaliação.
-
-## O caminho da avaliação
-
-```text
-Pessoa
-  │
-  ▼
-Frontend
-  │
-  ├── POST /reviews ───────▶ API
-  │                            ├── persiste a avaliação
-  │                            ├── responde sem aguardar a análise
-  │                            └── agenda o processamento
-  │                                       │
-  │                                       ▼
-  │                                    Worker
-  │                                       ├── chama POST /v1/analyze
-  │                                       ├── trata erros temporários
-  │                                       └── salva o resultado
-  │
-  └── GET /reviews ◀─────── status e análise atualizados
+```bash
+docker compose up --build
 ```
 
-O ponto mais importante desse fluxo: a API deve continuar recebendo avaliações
-mesmo quando o serviço externo estiver lento ou indisponível. Enquanto isso, a
-tela precisa comunicar com clareza o que está pendente, o que deu certo e o que
-falhou. A voz do cliente não pode ficar esperando outra API voltar.
+Na primeira execução, o Docker instala as dependências, constrói as imagens,
+inicia a infraestrutura e aplica as migrations automaticamente. Quando os
+healthchecks estiverem saudáveis, acesse:
 
-## O contrato que esperamos
+| Serviço | Endereço |
+| --- | --- |
+| Interface web | http://localhost:3000 |
+| API | http://localhost:3001 |
+| Swagger | http://localhost:3001/docs |
+| API fake de análise | http://localhost:4000 |
 
-Os nomes exatos dos campos e status podem mudar, desde que o contrato continue
-coerente, previsível e bem documentado.
-
-### Receber uma avaliação
-
-```http
-POST /reviews
-Content-Type: application/json
-Idempotency-Key: review-order-123
-```
-
-```json
-{
-  "external_id": "review-order-123",
-  "company_id": "company-456",
-  "rating": 2,
-  "comment": "O pedido demorou muito e chegou frio."
-}
-```
-
-Como a análise acontece depois, esperamos uma resposta assíncrona:
-
-```http
-HTTP/1.1 202 Accepted
-```
-
-```json
-{
-  "id": "identificador-interno",
-  "external_id": "review-order-123",
-  "status": "pending"
-}
-```
-
-O mesmo feedback pode chegar mais de uma vez. Sua solução deve reconhecer essa
-duplicidade e evitar tanto novos registros quanto processamentos indevidos.
-
-### Listar as avaliações
-
-```http
-GET /reviews
-```
-
-Retorne os dados necessários para montar a visão principal. O formato pode ser
-ajustado, mas deve permitir identificar cada avaliação e entender seu estado:
-
-```json
-{
-  "data": [
-    {
-      "id": "identificador-interno",
-      "external_id": "review-order-123",
-      "rating": 2,
-      "status": "processing",
-      "created_at": "2026-08-21T12:00:00.000Z"
-    }
-  ]
-}
-```
-
-### Acompanhar uma avaliação
-
-```http
-GET /reviews/:id
-```
-
-Depois do processamento, a resposta pode seguir este formato:
-
-```json
-{
-  "id": "identificador-interno",
-  "external_id": "review-order-123",
-  "company_id": "company-456",
-  "rating": 2,
-  "comment": "O pedido demorou muito e chegou frio.",
-  "status": "completed",
-  "analysis": {
-    "sentiment": "negative",
-    "category": "delivery",
-    "confidence": 0.91
-  },
-  "attempts": 2,
-  "created_at": "2026-08-21T12:00:00.000Z",
-  "processed_at": "2026-08-21T12:00:04.000Z"
-}
-```
-
-### Colocar o fluxo na tela
-
-A interface é parte obrigatória da entrega. Não precisa ser um dashboard
-completo: uma única página bem resolvida já é suficiente. Ela deve permitir:
-
-- cadastrar uma avaliação com os campos do contrato;
-- visualizar as avaliações já criadas;
-- diferenciar estados como pendente, processando, concluído e falha;
-- consultar o resultado da análise quando ele estiver disponível;
-- perceber estados de carregamento, lista vazia e erro de comunicação.
-
-A atualização do status pode ser manual ou automática, desde que a experiência
-seja coerente e a decisão esteja documentada. Não buscamos uma interface
-pixel-perfect; queremos ver frontend e backend funcionando juntos de verdade,
-sem dados fixos para simular a integração.
-
-## O que não pode faltar
-
-- TypeScript no frontend e no backend;
-- interface web integrada à API;
-- API HTTP;
-- banco de dados relacional;
-- processamento assíncrono;
-- execução completa de frontend, API, worker, banco e mock com Docker Compose;
-- proteção contra duplicidade;
-- tratamento de timeout, `429` e erros temporários `5xx`;
-- política de retry limitada;
-- status de processamento persistido;
-- testes automatizados dos fluxos mais importantes;
-- README com instruções de execução e decisões técnicas.
-
-React, Vue, Svelte ou outra solução no frontend; Express, Fastify, NestJS,
-BullMQ, RabbitMQ ou outro caminho no backend: a escolha é sua. O que queremos
-ver é uma solução consistente com o problema e uma explicação clara dos
-trade-offs.
-
-## Extras que somam
-
-Se o essencial estiver bem resolvido e ainda fizer sentido para o seu recorte,
-você pode incluir:
-
-- backoff exponencial;
-- fila de mensagens mortas ou tratamento equivalente;
-- endpoint para reprocessamento;
-- criação de alerta para avaliações negativas;
-- atualização de status em tempo real com SSE ou WebSocket;
-- filtros ou busca na lista de avaliações;
-- métricas ou logs estruturados;
-- healthchecks separados para API, banco e worker;
-- mecanismo para lidar com a falha entre persistir a avaliação e publicar o job;
-- testes de integração com banco e fila reais.
-
-Extras são realmente extras. Uma base confiável vale mais do que várias
-funcionalidades pela metade.
-
-## A API fake de análise
-
-Este repositório já traz uma API externa simulada em TypeScript. Ela não chama
-nenhum serviço real; seu papel é reproduzir o tipo de instabilidade que uma
-integração de verdade pode apresentar.
-
-### Coloque o ambiente de pé
+Não é obrigatório criar um `.env`: o Compose possui valores locais seguros por
+padrão. Para alterar portas, credenciais ou a política de retry:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Confira se a API está saudável:
+Para acompanhar o processamento:
 
 ```bash
-curl http://localhost:4000/health
+docker compose logs -f api worker
 ```
 
-### Envie uma avaliação para análise
+Para encerrar os containers preservando os dados:
 
 ```bash
-curl --request POST 'http://localhost:4000/v1/analyze' \
-  --header 'Content-Type: application/json' \
-  --data-raw '{
-    "review_id": "review-order-123",
+docker compose down
+```
+
+Para também apagar os volumes do PostgreSQL e Redis:
+
+```bash
+docker compose down --volumes
+```
+
+> O serviço `migrate` terminar com código `0` é o comportamento esperado: ele
+> aplica as migrations uma vez e libera a inicialização da API e do worker.
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    Browser[React] -->|/api| Nginx[Nginx]
+    Nginx --> API[NestJS API]
+    API -->|review + outbox<br/>mesma transação| PostgreSQL[(PostgreSQL)]
+    Publisher[Outbox publisher] --> PostgreSQL
+    Publisher --> Queue[BullMQ / Redis]
+    Queue --> Worker[NestJS worker]
+    Worker --> Mock[API fake de análise]
+    Worker --> PostgreSQL
+```
+
+O repositório usa npm workspaces:
+
+```text
+apps/
+  api/       API HTTP NestJS
+  web/       interface React + Vite
+  worker/    publicação do outbox e processamento BullMQ
+packages/
+  contracts/ tipos compartilhados entre frontend e backend
+  database/  schema, migrations e cliente Prisma
+mock-analysis-api/
+  serviço externo simulado fornecido no desafio
+```
+
+### Fluxo de uma avaliação
+
+1. `POST /reviews` valida o payload e a chave de idempotência.
+2. A avaliação e seu evento de outbox são gravados na mesma transação.
+3. A API responde `202 Accepted`, sem aguardar a análise.
+4. O publisher consulta o outbox e publica um job no Redis.
+5. O worker altera o status para `processing` e chama a API fake.
+6. Sucesso, erro e número de tentativas são persistidos no PostgreSQL.
+7. A interface atualiza automaticamente a lista enquanto houver itens ativos.
+
+## Decisões de confiabilidade
+
+### Idempotência
+
+O header `Idempotency-Key` é obrigatório e deve ser igual a `external_id`. A
+unicidade de `(company_id, external_id)` também é garantida pelo PostgreSQL, não
+apenas pela aplicação.
+
+- Repetir a mesma avaliação retorna o registro existente e `duplicate: true`.
+- Reutilizar a chave com conteúdo diferente retorna `409 Conflict`.
+- A restrição única do outbox impede criar mais de um evento para a avaliação.
+
+### Transactional outbox
+
+Persistir a avaliação e publicar diretamente no Redis deixaria uma janela de
+falha entre essas duas operações. Por isso, a API grava `review` e
+`outbox_event` atomicamente no PostgreSQL.
+
+O publisher:
+
+- procura eventos a cada segundo, em lotes de até 20;
+- usa `FOR UPDATE SKIP LOCKED`, permitindo mais de uma instância sem publicar o
+  mesmo lote simultaneamente;
+- aplica um lease de 30 segundos, para que um evento volte a ficar disponível se
+  o processo cair durante a publicação;
+- usa o ID da avaliação como `jobId` no BullMQ, tornando uma republicação
+  idempotente;
+- registra tentativas e último erro do outbox.
+
+Essa combinação cobre inclusive a falha entre adicionar o job no Redis e marcar
+o evento como publicado.
+
+### Timeout e retries
+
+Por padrão, cada chamada à API fake possui timeout de 5 segundos e no máximo
+quatro tentativas.
+
+São considerados temporários:
+
+- timeout e falhas de rede;
+- HTTP `408`;
+- HTTP `429`;
+- HTTP `5xx`;
+- respostas que indiquem explicitamente `retryable: true`.
+
+O worker respeita `Retry-After` quando presente. Caso contrário, usa backoff
+exponencial de 1, 2, 4… segundos, limitado a 30 segundos. Erros não temporários
+interrompem as tentativas imediatamente. Ao esgotar a política, a avaliação fica
+como `failed`, com `attempts`, `last_error` e `processed_at` persistidos. Jobs
+falhos permanecem no Redis para inspeção.
+
+### Estados visíveis
+
+Os estados persistidos são `pending`, `processing`, `completed` e `failed`. A
+interface diferencia cada um, permite atualização manual e faz polling a cada
+três segundos somente enquanto existirem avaliações pendentes ou em
+processamento. Isso mantém a experiência simples sem introduzir a complexidade
+operacional de WebSocket ou SSE neste recorte.
+
+## API
+
+O contrato completo e interativo está disponível no Swagger em
+http://localhost:3001/docs.
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `POST` | `/reviews` | Persiste e agenda uma avaliação |
+| `GET` | `/reviews` | Lista avaliações com paginação e filtro por status |
+| `GET` | `/reviews/:id` | Retorna avaliação, análise e último erro |
+| `GET` | `/health` | Healthcheck da API |
+
+### Criar uma avaliação
+
+```bash
+curl --request POST http://localhost:3001/reviews \
+  --header "Content-Type: application/json" \
+  --header "Idempotency-Key: review-order-123" \
+  --data '{
+    "external_id": "review-order-123",
     "company_id": "company-456",
     "rating": 2,
-    "text": "O pedido demorou muito e chegou frio."
+    "comment": "O pedido demorou muito e chegou frio."
   }'
 ```
 
-Se sua aplicação estiver no mesmo Docker Compose, use o endereço interno:
-
-```text
-http://mock-analysis-api:4000/v1/analyze
-```
-
-### Quando tudo dá certo
+Resposta:
 
 ```json
 {
-  "request_id": "8a7c00f3-7a06-4809-b6fa-faf1267f7230",
-  "review_id": "review-order-123",
-  "analysis": {
-    "sentiment": "negative",
-    "category": "delivery",
-    "confidence": 0.91,
-    "matched_keywords": ["demorou", "frio"]
-  },
-  "processing_time_ms": 718,
-  "processed_at": "2026-08-21T12:00:00.000Z"
+  "id": "0d952735-bdd3-4a78-9260-2a26765fc654",
+  "external_id": "review-order-123",
+  "status": "pending",
+  "duplicate": false
 }
 ```
 
-### Quando o caminho feliz deixa de ser feliz
-
-Sem headers especiais, a API fake aplica atrasos, rate limit e falhas periódicas
-de acordo com o `.env`. Isso é intencional: sua aplicação precisa estar pronta
-para uma dependência que nem sempre coopera.
-
-Quando precisar de um cenário previsível nos testes, envie
-`x-mock-scenario`:
-
-| Valor | O que acontece |
-|---|---|
-| `success` | a análise termina com sucesso |
-| `slow` | a análise termina com sucesso, mas demora mais |
-| `server-error` | a API retorna `503` com `Retry-After` |
-| `rate-limit` | a API retorna `429` com `Retry-After` |
-
-O header `x-client-id` permite isolar o rate limit entre clientes de teste.
-Outros exemplos prontos para uso estão em
-[`examples/requests.http`](examples/requests.http).
-
-## Alguns combinados
-
-- IA, documentação e mecanismos de busca estão liberados. Conte brevemente no
-  seu README como essas ferramentas participaram do trabalho.
-- Não altere o comportamento da API fake para contornar as falhas. Elas fazem
-  parte do desafio.
-- O frontend faz parte do desafio, mas pode ser uma tela única. Não é necessário
-  criar autenticação, um design system completo ou infraestrutura em nuvem.
-- Não existe uma única biblioteca, arquitetura ou resposta considerada correta.
-
-## Cuide do seu tempo
-
-Este desafio foi pensado para cerca de **4 horas de dedicação**, com limite
-recomendado de **6 horas**. Se alguma coisa ficar de fora, tudo bem — registre:
-
-- o que ficou pendente;
-- por que você priorizou dessa forma;
-- como concluiria essa parte em um cenário real.
-
-Saber recortar, priorizar e comunicar também faz parte do trabalho de engenharia.
-
-## Antes de compartilhar
-
-Envie um repositório Git com:
-
-- código-fonte do frontend e do backend;
-- migrations ou outra estrutura necessária para o banco;
-- Docker Compose;
-- testes;
-- README com comandos, URL da interface, decisões, limitações e próximos passos.
-
-Quando o projeto estiver pronto, envie o link do repositório pelo
-[formulário de entrega](https://forms.gle/E1QYX6gk9ZLTbej29).
-
-Queremos conseguir iniciar o projeto, de preferência, com um único comando:
+### Listar e filtrar
 
 ```bash
-docker compose up --build
+curl "http://localhost:3001/reviews?page=1&limit=20&status=completed"
 ```
 
-Depois que os containers subirem, deve estar claro em qual endereço local
-podemos abrir a tela e percorrer o fluxo completo.
+Parâmetros aceitos:
 
-## O que vamos observar
+- `page`: inteiro a partir de 1;
+- `limit`: entre 1 e 100;
+- `status`: `pending`, `processing`, `completed` ou `failed`.
 
-- clareza da arquitetura;
-- confiabilidade do processamento;
-- integração entre frontend e backend;
-- clareza dos estados e da experiência na interface;
-- qualidade e legibilidade do código;
-- estratégia contra duplicidade;
-- tratamento de falhas e retries;
-- qualidade dos testes;
-- facilidade para executar o projeto;
-- capacidade de explicar decisões e trade-offs.
+## Tecnologias
 
+| Área | Escolha |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite e Testing Library |
+| API | NestJS 11, TypeScript, class-validator e Swagger |
+| Worker | NestJS, BullMQ e cliente HTTP nativo (`fetch`) |
+| Persistência | PostgreSQL 17 e Prisma 7 |
+| Fila | Redis 8 |
+| Entrega | Docker Compose, imagens multi-stage e Nginx |
+| Qualidade | Jest, Vitest, ESLint e Prettier |
+
+NestJS foi escolhido pela familiaridade e por oferecer estrutura e injeção de
+dependências úteis para API e worker sem exigir camadas artificiais. API e worker
+são processos separados, mas compartilham contratos e acesso ao banco pelo
+monorepo.
+
+## Testes e qualidade
+
+Com Node.js 24 e npm 11 instalados:
+
+```bash
+npm install
+npm test
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+```
+
+A suíte automatizada cobre, entre outros cenários:
+
+- criação e duplicidade idempotente;
+- conflito ao reutilizar uma chave com conteúdo diferente;
+- validação do contrato, listagem, filtro e detalhe;
+- sucesso e erros temporários/definitivos da API de análise;
+- persistência das transições `processing`, `completed` e `failed`;
+- carregamento da interface, submissão com `Idempotency-Key`, detalhe da análise
+  e erro de comunicação.
+
+Além da suíte, foi executado um smoke test com todos os containers reais, desde
+o envio pela porta pública do frontend até a análise persistida pelo worker.
+
+## Variáveis de ambiente
+
+Os valores e descrições estão em [`.env.example`](.env.example). As principais
+configurações da aplicação são:
+
+| Variável | Padrão | Uso |
+| --- | --- | --- |
+| `WEB_PORT` | `3000` | Porta pública da interface |
+| `API_PORT` | `3001` | Porta pública da API |
+| `POSTGRES_PORT` | `5432` | Porta pública do PostgreSQL |
+| `REDIS_PORT` | `6379` | Porta pública do Redis |
+| `MOCK_API_PORT` | `4000` | Porta pública da API fake |
+| `ANALYSIS_TIMEOUT_MS` | `5000` | Timeout de cada análise |
+| `REVIEW_MAX_ATTEMPTS` | `4` | Limite total de tentativas |
+
+## Trade-offs e próximos passos
+
+O recorte priorizou não perder feedback, isolar a dependência instável e deixar
+o projeto simples de executar. Em uma evolução de produção, os próximos passos
+seriam:
+
+- autenticação e autorização por empresa;
+- endpoint de reprocessamento com trilha de auditoria;
+- métricas, tracing e alertas para outbox atrasado ou fila acumulada;
+- paginação e busca completas na interface;
+- testes de integração automatizados com PostgreSQL e Redis reais;
+- política explícita de retenção ou dead-letter queue operacional;
+- graceful degradation e readiness checks mais profundos;
+- CI executando testes, lint, build e scan das imagens.
+
+O lockfile atualmente reporta três alertas transitivos de severidade alta na
+cadeia de ferramentas do Prisma. O `npm audit` não oferece correção compatível
+sem alteração forçada/breaking; por isso, `npm audit fix --force` não foi aplicado
+automaticamente.
+
+## Uso de IA
+
+IA foi usada como ferramenta de apoio para discutir a arquitetura, acelerar a
+implementação, revisar casos de falha, criar testes e organizar esta
+documentação. As decisões foram conferidas no código e validadas com testes,
+typecheck, lint, builds Docker e smoke tests do fluxo completo. A API fake não
+foi alterada para contornar os cenários de instabilidade.
