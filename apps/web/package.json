@@ -10,6 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@falae/contracts": "*",
     "@vitejs/plugin-react": "^5.0.0",
     "vite": "^7.0.0",
     "react": "^19.0.0",
