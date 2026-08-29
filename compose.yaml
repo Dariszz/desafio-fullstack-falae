@@ -1,4 +1,92 @@
 services:
+  web:
+    build:
+      context: .
+      target: web
+    container_name: desafio-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  api:
+    build:
+      context: .
+      target: api
+    container_name: desafio-api
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-3001}:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-falae}:${POSTGRES_PASSWORD:-falae_local}@postgres:5432/${POSTGRES_DB:-falae}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  worker:
+    build:
+      context: .
+      target: worker
+    container_name: desafio-worker
+    init: true
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-falae}:${POSTGRES_PASSWORD:-falae_local}@postgres:5432/${POSTGRES_DB:-falae}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ANALYSIS_API_URL: http://mock-analysis-api:4000
+      ANALYSIS_TIMEOUT_MS: ${ANALYSIS_TIMEOUT_MS:-5000}
+      REVIEW_MAX_ATTEMPTS: ${REVIEW_MAX_ATTEMPTS:-4}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mock-analysis-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - --input-type=module
+        - -e
+        - "import Redis from 'ioredis'; const redis = new Redis({ host: process.env.REDIS_HOST, port: Number(process.env.REDIS_PORT) }); redis.ping().then(() => redis.quit()).then(() => process.exit(0)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    container_name: desafio-migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-falae}:${POSTGRES_PASSWORD:-falae_local}@postgres:5432/${POSTGRES_DB:-falae}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:17-alpine
     container_name: desafio-postgres
