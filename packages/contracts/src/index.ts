@@ -51,3 +51,10 @@ export interface ReviewsListResponse {
   data: ReviewSummary[];
   meta: PaginationMeta;
 }
+
+export const REVIEW_ANALYSIS_QUEUE = 'review-analysis';
+export const ANALYZE_REVIEW_JOB = 'analyze-review';
+
+export interface AnalyzeReviewJobData {
+  reviewId: string;
+}
