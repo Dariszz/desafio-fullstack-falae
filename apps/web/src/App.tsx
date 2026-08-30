@@ -10,6 +10,7 @@ import {
   createReview,
   getReview,
   listReviews,
+  reprocessReview,
   type CreateReviewInput,
 } from './api.js';
 
@@ -50,6 +51,11 @@ export function App() {
   const [selected, setSelected] = useState<ReviewDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+  const [reprocessMessage, setReprocessMessage] = useState<{
+    kind: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -134,6 +140,24 @@ export function App() {
     setSelected(null);
     setDetailError(null);
     setDetailLoading(false);
+  }
+
+  async function retryReview(id: string) {
+    setReprocessingId(id);
+    setReprocessMessage(null);
+
+    try {
+      await reprocessReview(id);
+      setReprocessMessage({
+        kind: 'success',
+        text: 'Avaliação reenviada. A nova análise continuará em segundo plano.',
+      });
+      await load(true);
+    } catch (error) {
+      setReprocessMessage({ kind: 'error', text: messageFrom(error) });
+    } finally {
+      setReprocessingId(null);
+    }
   }
 
   return (
@@ -268,6 +292,15 @@ export function App() {
             ))}
           </div>
 
+          {reprocessMessage && (
+            <p
+              className={`notice list-notice ${reprocessMessage.kind}`}
+              role="status"
+            >
+              {reprocessMessage.text}
+            </p>
+          )}
+
           {listError && (
             <div className="state-card error-state" role="alert">
               <strong>Não conseguimos carregar as avaliações.</strong>
@@ -301,6 +334,8 @@ export function App() {
                   key={review.id}
                   review={review}
                   onOpen={() => void openDetail(review.id)}
+                  onReprocess={() => void retryReview(review.id)}
+                  reprocessing={reprocessingId === review.id}
                 />
               ))}
             </div>
@@ -337,9 +372,13 @@ export function App() {
 function ReviewCard({
   review,
   onOpen,
+  onReprocess,
+  reprocessing,
 }: {
   review: ReviewSummary;
   onOpen: () => void;
+  onReprocess: () => void;
+  reprocessing: boolean;
 }) {
   return (
     <article className="review-card">
@@ -359,9 +398,21 @@ function ReviewCard({
           {'★'.repeat(review.rating)}
           <span>{'★'.repeat(5 - review.rating)}</span>
         </span>
-        <button type="button" onClick={onOpen}>
-          Ver detalhes →
-        </button>
+        <div className="review-actions">
+          {review.status === 'failed' && (
+            <button
+              className="retry-button"
+              type="button"
+              onClick={onReprocess}
+              disabled={reprocessing}
+            >
+              {reprocessing ? 'Reenviando…' : 'Tentar novamente'}
+            </button>
+          )}
+          <button type="button" onClick={onOpen}>
+            Ver detalhes →
+          </button>
+        </div>
       </div>
     </article>
   );

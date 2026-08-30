@@ -127,6 +127,83 @@ describe('App', () => {
       await screen.findByText(/nenhuma avaliação por aqui/i),
     ).toBeInTheDocument();
   });
+
+  it('reprocessa uma avaliação com falha e atualiza seu status', async () => {
+    const failedReview: ReviewSummary = {
+      ...review,
+      status: 'failed',
+      attempts: 4,
+      analysis: null,
+      processed_at: '2026-08-29T12:00:08.000Z',
+    };
+    const pendingReview: ReviewSummary = {
+      ...failedReview,
+      status: 'pending',
+      attempts: 0,
+      processed_at: null,
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ data: [failedReview], meta: meta(1) }))
+      .mockResolvedValueOnce(
+        response(
+          {
+            id: review.id,
+            external_id: review.external_id,
+            status: 'pending',
+          },
+          202,
+        ),
+      )
+      .mockResolvedValueOnce(
+        response({ data: [pendingReview], meta: meta(1) }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /tentar novamente/i }),
+    );
+
+    expect(
+      await screen.findByText(/avaliação reenviada.*segundo plano/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Pendente')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const reprocessCall = fetchMock.mock.calls[1];
+    expect(reprocessCall?.[0]).toBe(`/api/reviews/${review.id}/reprocess`);
+    expect(reprocessCall?.[1]?.method).toBe('POST');
+  });
+
+  it('mantém disponível a ação quando o reprocessamento falha', async () => {
+    const failedReview: ReviewSummary = {
+      ...review,
+      status: 'failed',
+      attempts: 4,
+      analysis: null,
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ data: [failedReview], meta: meta(1) }))
+      .mockResolvedValueOnce(
+        response({ message: 'A avaliação já teve seu estado alterado.' }, 409),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /tentar novamente/i }),
+    );
+
+    expect(
+      await screen.findByText(/já teve seu estado alterado/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /tentar novamente/i }),
+    ).toBeEnabled();
+  });
 });
 
 function response(payload: unknown, status = 200): Response {

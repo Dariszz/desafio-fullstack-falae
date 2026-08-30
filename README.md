@@ -151,6 +151,10 @@ três segundos somente enquanto existirem avaliações pendentes ou em
 processamento. Isso mantém a experiência simples sem introduzir a complexidade
 operacional de WebSocket ou SSE neste recorte.
 
+Avaliações com falha exibem a ação **Tentar novamente**. A interface comunica o
+resultado do pedido, atualiza a lista e volta a acompanhar automaticamente o
+novo processamento.
+
 ## API
 
 O contrato completo e interativo está disponível no Swagger em

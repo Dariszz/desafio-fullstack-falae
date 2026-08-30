@@ -124,6 +124,7 @@ h2 {
 }
 
 .panel {
+  min-width: 0;
   border: 1px solid rgba(24, 51, 42, 0.1);
   border-radius: 1.35rem;
   background: rgba(255, 254, 250, 0.94);
@@ -336,6 +337,10 @@ legend {
   color: white;
 }
 
+.list-notice {
+  margin-bottom: 1rem;
+}
+
 .review-list,
 .skeleton-list {
   display: grid;
@@ -403,6 +408,18 @@ legend {
   color: var(--green);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.review-footer .retry-button {
+  color: var(--danger);
 }
 
 .stars {
@@ -642,7 +659,7 @@ blockquote {
 
 @media (max-width: 960px) {
   .workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero-mark {

@@ -1,5 +1,6 @@
 import type {
   CreateReviewResponse,
+  ReprocessReviewResponse,
   ReviewDetail,
   ReviewsListResponse,
   ReviewStatus,
@@ -46,6 +47,13 @@ export function createReview(
     },
     body: JSON.stringify(input),
   });
+}
+
+export function reprocessReview(id: string): Promise<ReprocessReviewResponse> {
+  return request<ReprocessReviewResponse>(
+    `/reviews/${encodeURIComponent(id)}/reprocess`,
+    { method: 'POST' },
+  );
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
