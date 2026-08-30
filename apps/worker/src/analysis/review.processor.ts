@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ReviewStatus } from '@falae/database';
 import type { AnalyzeReviewJobData } from '@falae/contracts';
 import { UnrecoverableError, type Job } from 'bullmq';
@@ -10,6 +10,7 @@ import { AnalysisApiError } from './analysis.types.js';
 @Injectable()
 export class ReviewProcessor {
   private readonly config = loadWorkerConfig();
+  private readonly logger = new Logger(ReviewProcessor.name);
 
   constructor(
     private readonly database: DatabaseService,
@@ -25,9 +26,18 @@ export class ReviewProcessor {
     if (review.status === ReviewStatus.COMPLETED) return;
 
     const attempt = job.attemptsMade + 1;
+    const jobId = String(job.id ?? 'unknown');
+    const startedAt = Date.now();
     await this.database.client.review.update({
       where: { id: review.id },
       data: { status: ReviewStatus.PROCESSING, attempts: attempt },
+    });
+    this.logger.log({
+      event: 'analysis.started',
+      review_id: review.id,
+      job_id: jobId,
+      attempt,
+      max_attempts: this.config.maxAttempts,
     });
 
     try {
@@ -53,6 +63,15 @@ export class ReviewProcessor {
           processedAt: new Date(),
         },
       });
+      this.logger.log({
+        event: 'analysis.completed',
+        review_id: review.id,
+        job_id: jobId,
+        attempt,
+        duration_ms: Date.now() - startedAt,
+        sentiment: analysis.sentiment,
+        category: analysis.category,
+      });
     } catch (error: unknown) {
       const analysisError =
         error instanceof AnalysisApiError
@@ -72,6 +91,19 @@ export class ReviewProcessor {
           processedAt: failed ? new Date() : null,
         },
       });
+
+      const logEvent = {
+        event: failed ? 'analysis.failed' : 'analysis.retry_scheduled',
+        review_id: review.id,
+        job_id: jobId,
+        attempt,
+        max_attempts: this.config.maxAttempts,
+        duration_ms: Date.now() - startedAt,
+        retryable: analysisError.retryable,
+        error: analysisError.message,
+      };
+      if (failed) this.logger.error(logEvent);
+      else this.logger.warn(logEvent);
 
       if (!analysisError.retryable) {
         throw new UnrecoverableError(analysisError.message);

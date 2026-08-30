@@ -47,9 +47,18 @@ export class AnalysisWorker implements OnModuleInit, OnApplicationShutdown {
       },
     );
     this.worker.on('failed', (job, error) => {
-      this.logger.error(
-        `Job ${job?.id ?? 'desconhecido'} falhou: ${error.message}`,
-      );
+      const attemptsMade = job?.attemptsMade ?? 0;
+      const maxAttempts = job?.opts.attempts ?? 1;
+      this.logger.error({
+        event: 'job.attempt_failed',
+        review_id: job?.data.reviewId,
+        job_id: job?.id,
+        attempts_made: attemptsMade,
+        max_attempts: maxAttempts,
+        will_retry:
+          error.name !== 'UnrecoverableError' && attemptsMade < maxAttempts,
+        error: error.message,
+      });
     });
   }
 

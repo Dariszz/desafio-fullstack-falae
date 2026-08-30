@@ -17,6 +17,7 @@ interface ClaimedEvent {
 }
 
 describe('OutboxPublisher', () => {
+  let logSpy: jest.SpiedFunction<Logger['log']>;
   const event: ClaimedEvent = {
     id: 'outbox-id',
     reviewId: 'review-id',
@@ -38,6 +39,9 @@ describe('OutboxPublisher', () => {
     queryRaw.mockResolvedValue([event]);
     update.mockResolvedValue({});
     addReview.mockResolvedValue();
+    logSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
 
@@ -53,6 +57,12 @@ describe('OutboxPublisher', () => {
     expect(update).toHaveBeenCalledWith({
       where: { id: event.id },
       data: { publishedAt: expect.any(Date), lastError: null },
+    });
+    expect(logSpy).toHaveBeenCalledWith({
+      event: 'outbox.published',
+      outbox_event_id: event.id,
+      review_id: event.reviewId,
+      job_id: event.id,
     });
   });
 

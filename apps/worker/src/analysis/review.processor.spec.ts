@@ -1,7 +1,9 @@
+import { Logger } from '@nestjs/common';
 import { ReviewStatus } from '@falae/database';
 import { UnrecoverableError, type Job } from 'bullmq';
 import type { AnalyzeReviewJobData } from '@falae/contracts';
 import {
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -30,6 +32,8 @@ describe('ReviewProcessor', () => {
     client: { review: { findUnique, update } },
   } as unknown as DatabaseService;
   const analysisClient = { analyze } as unknown as AnalysisClient;
+  let logSpy: jest.SpiedFunction<Logger['log']>;
+  let warnSpy: jest.SpiedFunction<Logger['warn']>;
 
   beforeAll(() => {
     process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
@@ -38,12 +42,24 @@ describe('ReviewProcessor', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    logSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    warnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     findUnique.mockResolvedValue(review);
     update.mockResolvedValue(review);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   function job(attemptsMade = 0): Job<AnalyzeReviewJobData> {
     return {
+      id: 'job-id',
       data: { reviewId: review.id },
       attemptsMade,
     } as Job<AnalyzeReviewJobData>;
@@ -77,6 +93,14 @@ describe('ReviewProcessor', () => {
         }),
       }),
     );
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'analysis.completed',
+        review_id: review.id,
+        job_id: 'job-id',
+        attempt: 1,
+      }),
+    );
   });
 
   it('mantém processing quando uma falha temporária ainda pode ser repetida', async () => {
@@ -95,6 +119,15 @@ describe('ReviewProcessor', () => {
         processedAt: null,
       },
     });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'analysis.retry_scheduled',
+        review_id: review.id,
+        job_id: 'job-id',
+        attempt: 2,
+        retryable: true,
+      }),
+    );
   });
 
   it('marca como failed quando uma falha temporária esgota quatro tentativas', async () => {

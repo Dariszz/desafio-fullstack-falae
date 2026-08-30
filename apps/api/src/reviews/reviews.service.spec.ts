@@ -1,13 +1,21 @@
 import {
   BadRequestException,
   ConflictException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
   ReviewStatus as DatabaseReviewStatus,
   type Review,
 } from '@falae/database';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
 import { ReviewsRepository } from './reviews.repository.js';
@@ -23,8 +31,13 @@ type RepositoryMock = jest.Mocked<
 describe('ReviewsService', () => {
   let repository: RepositoryMock;
   let service: ReviewsService;
+  let logSpy: jest.SpiedFunction<Logger['log']>;
 
   beforeEach(() => {
+    logSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     repository = {
       createOrGet: jest.fn(),
       findById: jest.fn(),
@@ -32,6 +45,10 @@ describe('ReviewsService', () => {
       reprocessFailed: jest.fn(),
     };
     service = new ReviewsService(repository as unknown as ReviewsRepository);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('creates a review with a matching idempotency key', async () => {
@@ -53,6 +70,13 @@ describe('ReviewsService', () => {
       companyId: 'company-456',
       rating: 2,
       comment: 'O pedido demorou muito e chegou frio.',
+    });
+    expect(logSpy).toHaveBeenCalledWith({
+      event: 'review.created',
+      review_id: 'f88e5c5c-276f-45b1-a374-2232b4463302',
+      external_id: 'review-order-123',
+      company_id: 'company-456',
+      status: 'pending',
     });
   });
 
@@ -149,6 +173,13 @@ describe('ReviewsService', () => {
     expect(repository.reprocessFailed).toHaveBeenCalledWith(
       'f88e5c5c-276f-45b1-a374-2232b4463302',
     );
+    expect(logSpy).toHaveBeenCalledWith({
+      event: 'review.reprocess_requested',
+      review_id: 'f88e5c5c-276f-45b1-a374-2232b4463302',
+      external_id: 'review-order-123',
+      company_id: 'company-456',
+      status: 'pending',
+    });
   });
 
   it('rejects reprocessing when the review is not failed', async () => {

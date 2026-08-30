@@ -124,6 +124,18 @@ O publisher:
 Essa combinação cobre inclusive a falha entre adicionar o job no Redis e marcar
 o evento como publicado.
 
+### Logs estruturados e correlação
+
+API e worker escrevem logs JSON em linha única. Cada evento de negócio possui um
+nome estável e campos de correlação, permitindo acompanhar o fluxo com
+`docker compose logs api worker`.
+
+- `review_id` acompanha a avaliação em todos os estágios;
+- `outbox_event_id` identifica a publicação transacional;
+- `job_id` relaciona a mensagem do BullMQ ao evento do outbox;
+- `attempt`, `max_attempts` e `duration_ms` explicam retries e desempenho;
+- o campo `event` diferencia criação, duplicidade, publicação, sucesso e falha.
+
 ### Timeout e retries
 
 Por padrão, cada chamada à API fake possui timeout de 5 segundos e no máximo

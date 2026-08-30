@@ -60,9 +60,21 @@ export class OutboxPublisher {
         where: { id: event.id },
         data: { publishedAt: new Date(), lastError: null },
       });
+      this.logger.log({
+        event: 'outbox.published',
+        outbox_event_id: event.id,
+        review_id: event.reviewId,
+        job_id: event.id,
+      });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Falha ao publicar outbox ${event.id}: ${message}`);
+      this.logger.error({
+        event: 'outbox.publish_failed',
+        outbox_event_id: event.id,
+        review_id: event.reviewId,
+        job_id: event.id,
+        error: message,
+      });
       await this.database.client.outboxEvent.update({
         where: { id: event.id },
         data: {

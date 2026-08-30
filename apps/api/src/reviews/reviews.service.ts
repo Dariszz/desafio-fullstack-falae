@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
@@ -23,6 +24,8 @@ import { ReviewsRepository } from './reviews.repository.js';
 
 @Injectable()
 export class ReviewsService {
+  private readonly logger = new Logger(ReviewsService.name);
+
   constructor(private readonly repository: ReviewsRepository) {}
 
   async create(
@@ -62,10 +65,24 @@ export class ReviewsService {
     const result = await this.repository.createOrGet(data);
 
     if (!result.created && !this.hasSameContent(result.review, data)) {
+      this.logger.warn({
+        event: 'review.idempotency_conflict',
+        review_id: result.review.id,
+        external_id: result.review.externalId,
+        company_id: result.review.companyId,
+      });
       throw new ConflictException(
         'Já existe uma avaliação com o mesmo external_id e conteúdo diferente.',
       );
     }
+
+    this.logger.log({
+      event: result.created ? 'review.created' : 'review.duplicate_recognized',
+      review_id: result.review.id,
+      external_id: result.review.externalId,
+      company_id: result.review.companyId,
+      status: toApiReviewStatus(result.review.status),
+    });
 
     return {
       id: result.review.id,
@@ -124,6 +141,14 @@ export class ReviewsService {
         'A avaliação já foi reprocessada ou teve seu estado alterado.',
       );
     }
+
+    this.logger.log({
+      event: 'review.reprocess_requested',
+      review_id: reprocessed.id,
+      external_id: reprocessed.externalId,
+      company_id: reprocessed.companyId,
+      status: toApiReviewStatus(reprocessed.status),
+    });
 
     return {
       id: reprocessed.id,
