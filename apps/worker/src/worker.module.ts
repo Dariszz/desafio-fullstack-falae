@@ -8,6 +8,7 @@ import { MetricsService } from './metrics.service.js';
 import { AnalysisClient } from './analysis/analysis.client.js';
 import { AnalysisWorker } from './analysis/analysis.worker.js';
 import { ReviewProcessor } from './analysis/review.processor.js';
+import { ReadinessService } from './readiness.service.js';
 
 @Module({
   imports: [ScheduleModule.forRoot()],
@@ -20,6 +21,7 @@ import { ReviewProcessor } from './analysis/review.processor.js';
     AnalysisClient,
     ReviewProcessor,
     AnalysisWorker,
+    ReadinessService,
   ],
 })
 export class WorkerModule {}

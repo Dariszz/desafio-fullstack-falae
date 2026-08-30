@@ -27,6 +27,10 @@ export class QueueService implements OnApplicationShutdown {
     await this.queue.add(ANALYZE_REVIEW_JOB, { reviewId }, { jobId: eventId });
   }
 
+  async checkConnection(): Promise<void> {
+    await this.queue.getJobCounts();
+  }
+
   async onApplicationShutdown(): Promise<void> {
     await this.queue.close();
   }

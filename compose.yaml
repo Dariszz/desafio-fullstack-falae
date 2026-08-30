@@ -35,7 +35,7 @@ services:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        - "fetch('http://127.0.0.1:3001/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 10s
       timeout: 3s
       retries: 5
@@ -71,7 +71,7 @@ services:
         - node
         - --input-type=module
         - -e
-        - "import Redis from 'ioredis'; const redis = new Redis({ host: process.env.REDIS_HOST, port: Number(process.env.REDIS_PORT) }); redis.ping().then(() => redis.quit()).then(() => process.exit(0)).catch(() => process.exit(1))"
+        - "fetch('http://127.0.0.1:3002/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 10s
       timeout: 5s
       retries: 5
@@ -241,7 +241,7 @@ services:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        - "fetch('http://127.0.0.1:3001/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 2s
       timeout: 3s
       retries: 15
@@ -275,7 +275,7 @@ services:
         - node
         - --input-type=module
         - -e
-        - "import Redis from 'ioredis'; const redis = new Redis({ host: process.env.REDIS_HOST, port: Number(process.env.REDIS_PORT) }); redis.ping().then(() => redis.quit()).then(() => process.exit(0)).catch(() => process.exit(1))"
+        - "fetch('http://127.0.0.1:3002/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 2s
       timeout: 3s
       retries: 15

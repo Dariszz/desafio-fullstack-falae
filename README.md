@@ -80,6 +80,8 @@ O repositório usa npm workspaces:
 apps/
   api/       API HTTP NestJS
   web/       interface React + Vite
+    src/components/  componentes visuais reutilizáveis
+    src/hooks/       estado, efeitos e operações da interface
   worker/    publicação do outbox e processamento BullMQ
 packages/
   contracts/ tipos compartilhados entre frontend e backend
@@ -219,7 +221,8 @@ http://localhost:3001/docs.
 | `POST` | `/reviews/:id/reprocess` | Reagenda uma avaliação com status `failed` |
 | `GET` | `/reviews` | Lista avaliações com paginação e filtro por status |
 | `GET` | `/reviews/:id` | Retorna avaliação, análise e último erro |
-| `GET` | `/health` | Healthcheck da API |
+| `GET` | `/health` | Liveness da API |
+| `GET` | `/ready` | Readiness da API, incluindo PostgreSQL |
 
 ### Criar uma avaliação
 
@@ -370,7 +373,7 @@ seriam:
 - tracing e alertas para outbox atrasado ou fila acumulada;
 - busca textual na interface;
 - dead-letter queue operacional;
-- graceful degradation e readiness checks mais profundos;
+- graceful degradation para dependências indisponíveis;
 - scan de segurança automatizado das imagens Docker.
 
 O lockfile atualmente reporta três alertas transitivos de severidade alta na

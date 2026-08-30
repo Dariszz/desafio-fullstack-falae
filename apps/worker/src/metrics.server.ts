@@ -7,6 +7,7 @@ import {
 import { createServer, type Server } from 'node:http';
 import { loadWorkerConfig } from './config.js';
 import { MetricsService } from './metrics.service.js';
+import { ReadinessService } from './readiness.service.js';
 
 @Injectable()
 export class MetricsServer implements OnModuleInit, OnApplicationShutdown {
@@ -14,11 +15,35 @@ export class MetricsServer implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(MetricsServer.name);
   private server?: Server;
 
-  constructor(private readonly metricsService: MetricsService) {}
+  constructor(
+    private readonly metricsService: MetricsService,
+    private readonly readinessService: ReadinessService,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     this.server = createServer((request, response) => {
-      if (request.method !== 'GET' || request.url !== '/metrics') {
+      if (request.method !== 'GET') {
+        response.writeHead(404).end('Not Found');
+        return;
+      }
+
+      if (request.url === '/health') {
+        this.sendJson(response, 200, { status: 'ok' });
+        return;
+      }
+
+      if (request.url === '/ready') {
+        void this.readinessService.check().then((readiness) => {
+          this.sendJson(
+            response,
+            readiness.status === 'ready' ? 200 : 503,
+            readiness,
+          );
+        });
+        return;
+      }
+
+      if (request.url !== '/metrics') {
         response.writeHead(404).end('Not Found');
         return;
       }
@@ -52,6 +77,15 @@ export class MetricsServer implements OnModuleInit, OnApplicationShutdown {
       event: 'metrics.server_started',
       port: this.config.metricsPort,
     });
+  }
+
+  private sendJson(
+    response: import('node:http').ServerResponse,
+    status: number,
+    body: unknown,
+  ): void {
+    response.writeHead(status, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(body));
   }
 
   async onApplicationShutdown(): Promise<void> {
