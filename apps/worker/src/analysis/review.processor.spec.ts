@@ -28,6 +28,7 @@ describe('ReviewProcessor', () => {
   };
   const findUnique = jest.fn<() => Promise<typeof review | null>>();
   const update = jest.fn<(args: unknown) => Promise<typeof review>>();
+  const updateMany = jest.fn<(args: unknown) => Promise<{ count: number }>>();
   const upsert = jest.fn<(args: unknown) => Promise<unknown>>();
   const transaction =
     jest.fn<
@@ -40,7 +41,10 @@ describe('ReviewProcessor', () => {
     >();
   const analyze = jest.fn<AnalysisClient['analyze']>();
   const database = {
-    client: { review: { findUnique, update }, $transaction: transaction },
+    client: {
+      review: { findUnique, update, updateMany },
+      $transaction: transaction,
+    },
   } as unknown as DatabaseService;
   const analysisClient = { analyze } as unknown as AnalysisClient;
   const analysisStarted = jest.fn<MetricsService['analysisStarted']>();
@@ -72,6 +76,7 @@ describe('ReviewProcessor', () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     findUnique.mockResolvedValue(review);
     update.mockResolvedValue(review);
+    updateMany.mockResolvedValue({ count: 1 });
     upsert.mockResolvedValue({});
     transaction.mockImplementation(async (callback) =>
       callback({ review: { update }, reviewAlert: { upsert } }),
@@ -103,12 +108,15 @@ describe('ReviewProcessor', () => {
 
     await new ReviewProcessor(database, analysisClient, metrics).process(job());
 
-    expect(update).toHaveBeenNthCalledWith(1, {
-      where: { id: review.id },
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: review.id,
+        status: { in: [ReviewStatus.PENDING, ReviewStatus.PROCESSING] },
+        attempts: { lt: 1 },
+      },
       data: { status: ReviewStatus.PROCESSING, attempts: 1 },
     });
-    expect(update).toHaveBeenNthCalledWith(
-      2,
+    expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: ReviewStatus.COMPLETED,
@@ -166,6 +174,32 @@ describe('ReviewProcessor', () => {
     expect(recordNegativeAlert).not.toHaveBeenCalled();
   });
 
+  it('permite que apenas um job concorrente assuma a mesma avaliação', async () => {
+    let claimed = false;
+    updateMany.mockImplementation(() => {
+      if (claimed) return Promise.resolve({ count: 0 });
+      claimed = true;
+      return Promise.resolve({ count: 1 });
+    });
+    analyze.mockResolvedValue({
+      requestId: 'request-id',
+      sentiment: 'positive',
+      category: 'service',
+      confidence: 0.95,
+      matchedKeywords: ['excelente'],
+      processedAt: new Date('2026-08-29T12:00:00.000Z'),
+    });
+
+    const first = new ReviewProcessor(database, analysisClient, metrics);
+    const second = new ReviewProcessor(database, analysisClient, metrics);
+    await Promise.all([first.process(job()), second.process(job())]);
+
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(analysisStarted).toHaveBeenCalledTimes(1);
+    expect(analysisEnded).toHaveBeenCalledTimes(1);
+  });
+
   it('mantém processing quando uma falha temporária ainda pode ser repetida', async () => {
     const error = new AnalysisApiError('Serviço indisponível.', true, 2000);
     analyze.mockRejectedValue(error);
@@ -202,8 +236,12 @@ describe('ReviewProcessor', () => {
       new ReviewProcessor(database, analysisClient, metrics).process(job(3)),
     ).rejects.toBe(error);
 
-    expect(update).toHaveBeenNthCalledWith(1, {
-      where: { id: review.id },
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: review.id,
+        status: { in: [ReviewStatus.PENDING, ReviewStatus.PROCESSING] },
+        attempts: { lt: 4 },
+      },
       data: { status: ReviewStatus.PROCESSING, attempts: 4 },
     });
     expect(update).toHaveBeenLastCalledWith({
@@ -238,9 +276,7 @@ describe('ReviewProcessor', () => {
     const analysisError = new AnalysisApiError('Serviço indisponível.', true);
     const persistenceError = new Error('Banco indisponível.');
     analyze.mockRejectedValue(analysisError);
-    update
-      .mockResolvedValueOnce(review)
-      .mockRejectedValueOnce(persistenceError);
+    update.mockRejectedValueOnce(persistenceError);
 
     await expect(
       new ReviewProcessor(database, analysisClient, metrics).process(job()),

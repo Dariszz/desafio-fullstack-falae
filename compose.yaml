@@ -56,6 +56,7 @@ services:
       ANALYSIS_API_URL: http://mock-analysis-api:4000
       ANALYSIS_TIMEOUT_MS: ${ANALYSIS_TIMEOUT_MS:-5000}
       REVIEW_MAX_ATTEMPTS: ${REVIEW_MAX_ATTEMPTS:-4}
+      OUTBOX_RETENTION_DAYS: ${OUTBOX_RETENTION_DAYS:-30}
       WORKER_METRICS_PORT: 3002
     depends_on:
       migrate:
@@ -259,6 +260,7 @@ services:
       ANALYSIS_API_URL: http://integration-mock-analysis-api:4000
       ANALYSIS_TIMEOUT_MS: 2000
       REVIEW_MAX_ATTEMPTS: 4
+      OUTBOX_RETENTION_DAYS: 30
       WORKER_METRICS_PORT: 3002
     depends_on:
       integration-migrate:

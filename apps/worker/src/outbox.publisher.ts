@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Interval } from '@nestjs/schedule';
+import { Cron, CronExpression, Interval } from '@nestjs/schedule';
 import { Prisma } from '@falae/database';
+import { loadWorkerConfig } from './config.js';
 import { DatabaseService } from './database.service.js';
 import { QueueService } from './queue.service.js';
 import { MetricsService } from './metrics.service.js';
@@ -12,8 +13,10 @@ interface ClaimedEvent {
 
 @Injectable()
 export class OutboxPublisher {
+  private readonly config = loadWorkerConfig();
   private readonly logger = new Logger(OutboxPublisher.name);
   private publishing = false;
+  private cleaning = false;
 
   constructor(
     private readonly database: DatabaseService,
@@ -31,6 +34,33 @@ export class OutboxPublisher {
       await Promise.all(events.map((event) => this.publish(event)));
     } finally {
       this.publishing = false;
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async cleanupPublished(): Promise<void> {
+    if (this.cleaning) return;
+    this.cleaning = true;
+
+    try {
+      const cutoff = new Date(
+        Date.now() - this.config.outboxRetentionDays * 24 * 60 * 60 * 1000,
+      );
+      const deleted = await this.database.client.outboxEvent.deleteMany({
+        where: {
+          publishedAt: { not: null, lt: cutoff },
+        },
+      });
+
+      if (deleted.count > 0) {
+        this.logger.log({
+          event: 'outbox.cleanup_completed',
+          deleted_count: deleted.count,
+          retention_days: this.config.outboxRetentionDays,
+        });
+      }
+    } finally {
+      this.cleaning = false;
     }
   }
 

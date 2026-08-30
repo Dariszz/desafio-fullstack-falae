@@ -30,10 +30,16 @@ export class ReviewProcessor {
     const attempt = job.attemptsMade + 1;
     const jobId = String(job.id ?? 'unknown');
     const startedAt = Date.now();
-    await this.database.client.review.update({
-      where: { id: review.id },
+    const claimed = await this.database.client.review.updateMany({
+      where: {
+        id: review.id,
+        status: { in: [ReviewStatus.PENDING, ReviewStatus.PROCESSING] },
+        attempts: { lt: attempt },
+      },
       data: { status: ReviewStatus.PROCESSING, attempts: attempt },
     });
+    if (claimed.count === 0) return;
+
     this.logger.log({
       event: 'analysis.started',
       review_id: review.id,

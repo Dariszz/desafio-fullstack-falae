@@ -6,6 +6,7 @@ export interface WorkerConfig {
   analysisTimeoutMs: number;
   maxAttempts: number;
   metricsPort: number;
+  outboxRetentionDays: number;
 }
 
 export function loadWorkerConfig(
@@ -19,6 +20,7 @@ export function loadWorkerConfig(
     analysisTimeoutMs: positiveInteger(env.ANALYSIS_TIMEOUT_MS, 5000),
     maxAttempts: positiveInteger(env.REVIEW_MAX_ATTEMPTS, 4),
     metricsPort: positiveInteger(env.WORKER_METRICS_PORT, 3002),
+    outboxRetentionDays: positiveInteger(env.OUTBOX_RETENTION_DAYS, 30),
   };
 }
 

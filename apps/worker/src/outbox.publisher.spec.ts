@@ -25,12 +25,13 @@ describe('OutboxPublisher', () => {
   };
   const queryRaw = jest.fn<() => Promise<ClaimedEvent[]>>();
   const update = jest.fn<(args: unknown) => Promise<unknown>>();
+  const deleteMany = jest.fn<(args: unknown) => Promise<{ count: number }>>();
   const addReview =
     jest.fn<(reviewId: string, eventId: string) => Promise<void>>();
   const database = {
     client: {
       $queryRaw: queryRaw,
-      outboxEvent: { update },
+      outboxEvent: { update, deleteMany },
     },
   } as unknown as DatabaseService;
   const queue = { addReview } as unknown as QueueService;
@@ -38,9 +39,12 @@ describe('OutboxPublisher', () => {
   const metrics = { recordOutbox } as unknown as MetricsService;
 
   beforeEach(() => {
+    process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+    process.env.OUTBOX_RETENTION_DAYS = '30';
     jest.clearAllMocks();
     queryRaw.mockResolvedValue([event]);
     update.mockResolvedValue({});
+    deleteMany.mockResolvedValue({ count: 0 });
     addReview.mockResolvedValue();
     logSpy = jest
       .spyOn(Logger.prototype, 'log')
@@ -87,5 +91,27 @@ describe('OutboxPublisher', () => {
       },
     });
     expect(recordOutbox).toHaveBeenCalledWith('failed');
+  });
+
+  it('remove somente eventos publicados além do período de retenção', async () => {
+    const now = new Date('2026-08-30T12:00:00.000Z').getTime();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    deleteMany.mockResolvedValue({ count: 3 });
+
+    await new OutboxPublisher(database, queue, metrics).cleanupPublished();
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        publishedAt: {
+          not: null,
+          lt: new Date('2026-07-31T12:00:00.000Z'),
+        },
+      },
+    });
+    expect(logSpy).toHaveBeenCalledWith({
+      event: 'outbox.cleanup_completed',
+      deleted_count: 3,
+      retention_days: 30,
+    });
   });
 });

@@ -127,7 +127,9 @@ O publisher:
   o processo cair durante a publicação;
 - usa o ID do evento de outbox como `jobId` no BullMQ, tornando a republicação
   do mesmo evento idempotente e permitindo reprocessamentos posteriores;
-- registra tentativas e último erro do outbox.
+- registra tentativas e último erro do outbox;
+- remove diariamente apenas eventos já publicados que excederam a retenção
+  configurada, de 30 dias por padrão.
 
 Essa combinação cobre inclusive a falha entre adicionar o job no Redis e marcar
 o evento como publicado.
@@ -355,6 +357,7 @@ configurações da aplicação são:
 | `MOCK_API_PORT` | `4000` | Porta local da API fake (`127.0.0.1`) |
 | `ANALYSIS_TIMEOUT_MS` | `5000` | Timeout de cada análise |
 | `REVIEW_MAX_ATTEMPTS` | `4` | Limite total de tentativas |
+| `OUTBOX_RETENTION_DAYS` | `30` | Retenção de eventos publicados no outbox |
 
 ## Trade-offs e próximos passos
 
@@ -366,7 +369,7 @@ seriam:
 - trilha de auditoria detalhada para reprocessamentos manuais;
 - tracing e alertas para outbox atrasado ou fila acumulada;
 - busca textual na interface;
-- política explícita de retenção ou dead-letter queue operacional;
+- dead-letter queue operacional;
 - graceful degradation e readiness checks mais profundos;
 - scan de segurança automatizado das imagens Docker.
 
