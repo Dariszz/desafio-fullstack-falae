@@ -27,8 +27,12 @@ export class ApiError extends Error {
 
 export async function listReviews(
   status?: ReviewStatus,
+  page = 1,
 ): Promise<ReviewsListResponse> {
-  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const parameters = new URLSearchParams();
+  if (status) parameters.set('status', status);
+  if (page > 1) parameters.set('page', String(page));
+  const query = parameters.size > 0 ? `?${parameters.toString()}` : '';
   return request<ReviewsListResponse>(`/reviews${query}`);
 }
 

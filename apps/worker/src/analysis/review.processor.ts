@@ -145,6 +145,8 @@ export class ReviewProcessor {
         throw new UnrecoverableError(analysisError.message);
       }
       throw analysisError;
+    } finally {
+      this.metrics.analysisEnded();
     }
   }
 }

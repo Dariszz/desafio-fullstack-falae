@@ -95,7 +95,7 @@ services:
     container_name: desafio-postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-falae}
       POSTGRES_USER: ${POSTGRES_USER:-falae}
@@ -116,7 +116,7 @@ services:
     container_name: desafio-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -133,7 +133,7 @@ services:
     container_name: desafio-mock-analysis-api
     restart: unless-stopped
     ports:
-      - "${MOCK_API_PORT:-4000}:4000"
+      - "127.0.0.1:${MOCK_API_PORT:-4000}:4000"
     environment:
       PORT: 4000
       MIN_DELAY_MS: ${MIN_DELAY_MS:-250}

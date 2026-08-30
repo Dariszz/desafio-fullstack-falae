@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ReviewDetail,
   ReviewStatus,
@@ -41,9 +41,13 @@ export function App() {
   const [reviews, setReviews] = useState<ReviewSummary[]>([]);
   const [filter, setFilter] = useState<ReviewStatus | 'all'>('all');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [paginationError, setPaginationError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<{
     kind: 'success' | 'error';
     text: string;
@@ -56,21 +60,39 @@ export function App() {
     kind: 'success' | 'error';
     text: string;
   } | null>(null);
+  const detailDrawerRef = useRef<HTMLElement>(null);
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const load = useCallback(
-    async (quiet = false) => {
-      if (quiet) setRefreshing(true);
+    async (quiet = false, requestedPage = 1, append = false) => {
+      if (append) setLoadingMore(true);
+      else if (quiet) setRefreshing(true);
       else setLoading(true);
       try {
         const response = await listReviews(
           filter === 'all' ? undefined : filter,
+          requestedPage,
         );
-        setReviews(response.data);
+        setReviews((current) =>
+          append
+            ? [
+                ...current,
+                ...response.data.filter(
+                  (review) => !current.some(({ id }) => id === review.id),
+                ),
+              ]
+            : response.data,
+        );
+        setPage(response.meta.page);
+        setTotalPages(response.meta.total_pages);
         setListError(null);
+        setPaginationError(null);
       } catch (error) {
-        setListError(messageFrom(error));
+        if (append) setPaginationError(messageFrom(error));
+        else setListError(messageFrom(error));
       } finally {
         setLoading(false);
+        setLoadingMore(false);
         setRefreshing(false);
       }
     },
@@ -123,7 +145,8 @@ export function App() {
     }
   }
 
-  async function openDetail(id: string) {
+  async function openDetail(id: string, trigger: HTMLButtonElement) {
+    detailTriggerRef.current = trigger;
     setDetailLoading(true);
     setDetailError(null);
     setSelected(null);
@@ -136,11 +159,58 @@ export function App() {
     }
   }
 
-  function closeDetail() {
+  const closeDetail = useCallback(() => {
     setSelected(null);
     setDetailError(null);
     setDetailLoading(false);
-  }
+  }, []);
+
+  const detailOpen = detailLoading || detailError !== null || selected !== null;
+
+  useEffect(() => {
+    if (!detailOpen) return;
+
+    const activeDrawer = detailDrawerRef.current;
+    if (!activeDrawer) return;
+    const drawerElement: HTMLElement = activeDrawer;
+    const trigger = detailTriggerRef.current;
+    drawerElement
+      .querySelector<HTMLButtonElement>('[aria-label="Fechar detalhes"]')
+      ?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDetail();
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(
+        drawerElement.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      trigger?.focus();
+      detailTriggerRef.current = null;
+    };
+  }, [closeDetail, detailOpen]);
 
   async function retryReview(id: string) {
     setReprocessingId(id);
@@ -327,25 +397,45 @@ export function App() {
             </div>
           )}
 
-          {!listError && reviews.length > 0 && (
-            <div className="review-list">
-              {reviews.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  review={review}
-                  onOpen={() => void openDetail(review.id)}
-                  onReprocess={() => void retryReview(review.id)}
-                  reprocessing={reprocessingId === review.id}
-                />
-              ))}
-            </div>
+          {!listError && !loading && reviews.length > 0 && (
+            <>
+              <div className="review-list">
+                {reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onOpen={(trigger) => void openDetail(review.id, trigger)}
+                    onReprocess={() => void retryReview(review.id)}
+                    reprocessing={reprocessingId === review.id}
+                  />
+                ))}
+              </div>
+              {paginationError && (
+                <p className="notice error pagination-notice" role="alert">
+                  {paginationError}
+                </p>
+              )}
+              {page < totalPages && (
+                <div className="load-more-container">
+                  <button
+                    className="load-more-button"
+                    type="button"
+                    disabled={loadingMore}
+                    onClick={() => void load(false, page + 1, true)}
+                  >
+                    {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </article>
       </section>
 
-      {(detailLoading || detailError || selected) && (
+      {detailOpen && (
         <div className="detail-backdrop" role="presentation">
           <aside
+            ref={detailDrawerRef}
             className="detail-drawer"
             role="dialog"
             aria-modal="true"
@@ -376,7 +466,7 @@ function ReviewCard({
   reprocessing,
 }: {
   review: ReviewSummary;
-  onOpen: () => void;
+  onOpen: (trigger: HTMLButtonElement) => void;
   onReprocess: () => void;
   reprocessing: boolean;
 }) {
@@ -415,7 +505,10 @@ function ReviewCard({
               {reprocessing ? 'Reenviando…' : 'Tentar novamente'}
             </button>
           )}
-          <button type="button" onClick={onOpen}>
+          <button
+            type="button"
+            onClick={(event) => onOpen(event.currentTarget)}
+          >
             Ver detalhes →
           </button>
         </div>

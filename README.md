@@ -34,6 +34,11 @@ cp .env.example .env
 docker compose up --build
 ```
 
+PostgreSQL, Redis e a API fake publicam suas portas somente em `127.0.0.1`.
+Eles continuam acessíveis no computador do avaliador, mas não ficam expostos em
+outras interfaces de rede; entre containers, a comunicação usa a rede interna
+do Compose.
+
 Para acompanhar o processamento:
 
 ```bash
@@ -344,9 +349,9 @@ configurações da aplicação são:
 | `WEB_PORT` | `3000` | Porta pública da interface |
 | `API_PORT` | `3001` | Porta pública da API |
 | `WORKER_METRICS_PORT` | `3002` | Porta pública das métricas do worker |
-| `POSTGRES_PORT` | `5432` | Porta pública do PostgreSQL |
-| `REDIS_PORT` | `6379` | Porta pública do Redis |
-| `MOCK_API_PORT` | `4000` | Porta pública da API fake |
+| `POSTGRES_PORT` | `5432` | Porta local do PostgreSQL (`127.0.0.1`) |
+| `REDIS_PORT` | `6379` | Porta local do Redis (`127.0.0.1`) |
+| `MOCK_API_PORT` | `4000` | Porta local da API fake (`127.0.0.1`) |
 | `ANALYSIS_TIMEOUT_MS` | `5000` | Timeout de cada análise |
 | `REVIEW_MAX_ATTEMPTS` | `4` | Limite total de tentativas |
 

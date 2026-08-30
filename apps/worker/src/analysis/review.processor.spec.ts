@@ -44,10 +44,12 @@ describe('ReviewProcessor', () => {
   } as unknown as DatabaseService;
   const analysisClient = { analyze } as unknown as AnalysisClient;
   const analysisStarted = jest.fn<MetricsService['analysisStarted']>();
+  const analysisEnded = jest.fn<MetricsService['analysisEnded']>();
   const analysisFinished = jest.fn<MetricsService['analysisFinished']>();
   const recordNegativeAlert = jest.fn<MetricsService['recordNegativeAlert']>();
   const metrics = {
     analysisStarted,
+    analysisEnded,
     analysisFinished,
     recordNegativeAlert,
   } as unknown as MetricsService;
@@ -145,6 +147,7 @@ describe('ReviewProcessor', () => {
       'completed',
       expect.any(Number),
     );
+    expect(analysisEnded).toHaveBeenCalledTimes(1);
   });
 
   it('não cria alerta para uma análise positiva', async () => {
@@ -229,5 +232,22 @@ describe('ReviewProcessor', () => {
         processedAt: expect.any(Date),
       },
     });
+  });
+
+  it('encerra a gauge mesmo quando a persistência do erro falha', async () => {
+    const analysisError = new AnalysisApiError('Serviço indisponível.', true);
+    const persistenceError = new Error('Banco indisponível.');
+    analyze.mockRejectedValue(analysisError);
+    update
+      .mockResolvedValueOnce(review)
+      .mockRejectedValueOnce(persistenceError);
+
+    await expect(
+      new ReviewProcessor(database, analysisClient, metrics).process(job()),
+    ).rejects.toBe(persistenceError);
+
+    expect(analysisStarted).toHaveBeenCalledTimes(1);
+    expect(analysisFinished).not.toHaveBeenCalled();
+    expect(analysisEnded).toHaveBeenCalledTimes(1);
   });
 });

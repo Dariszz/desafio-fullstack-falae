@@ -67,6 +67,58 @@ describe('App', () => {
     expect(screen.getByText('delivery')).toBeInTheDocument();
   });
 
+  it('mantém o foco no drawer, fecha com Escape e restaura o acionador', async () => {
+    const detail: ReviewDetail = {
+      ...review,
+      last_error: null,
+      updated_at: '2026-08-29T12:00:02.000Z',
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ data: [review], meta: meta(1) }))
+      .mockResolvedValueOnce(response(detail));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    const trigger = await screen.findByRole('button', {
+      name: /ver detalhes/i,
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const closeButton = screen.getByRole('button', {
+      name: /fechar detalhes/i,
+    });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+
+    const tab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(closeButton).toHaveFocus();
+
+    const shiftTab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(shiftTab);
+    expect(shiftTab.defaultPrevented).toBe(true);
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(trigger).toHaveFocus();
+  });
+
   it('envia o formulário com a chave de idempotência e atualiza a lista', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -136,6 +188,69 @@ describe('App', () => {
     expect(
       await screen.findByText(/nenhuma avaliação por aqui/i),
     ).toBeInTheDocument();
+  });
+
+  it('oculta a lista anterior enquanto um novo filtro está carregando', async () => {
+    let resolveFilteredRequest: ((value: Response) => void) | undefined;
+    const filteredRequest = new Promise<Response>((resolve) => {
+      resolveFilteredRequest = resolve;
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ data: [review], meta: meta(1) }))
+      .mockReturnValueOnce(filteredRequest);
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText('company-456')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Pendentes' }));
+
+    expect(
+      await screen.findByLabelText(/carregando avaliações/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('company-456')).not.toBeInTheDocument();
+
+    resolveFilteredRequest?.(response({ data: [], meta: meta(0) }));
+    expect(
+      await screen.findByText(/não há avaliações com esse status/i),
+    ).toBeInTheDocument();
+  });
+
+  it('carrega páginas adicionais sem remover as avaliações anteriores', async () => {
+    const secondReview: ReviewSummary = {
+      ...review,
+      id: '476ec11f-ea8a-4aa2-b21e-95d177286e67',
+      external_id: 'review-order-456',
+      company_id: 'company-789',
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        response({
+          data: [review],
+          meta: { page: 1, limit: 20, total: 21, total_pages: 2 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          data: [secondReview],
+          meta: { page: 2, limit: 20, total: 21, total_pages: 2 },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText('company-456')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /carregar mais/i }));
+
+    expect(await screen.findByText('company-789')).toBeInTheDocument();
+    expect(screen.getByText('company-456')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /carregar mais/i }),
+    ).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/reviews?page=2');
   });
 
   it('reprocessa uma avaliação com falha e atualiza seu status', async () => {

@@ -64,6 +64,10 @@ export class MetricsService {
     this.analysesInProgress.inc();
   }
 
+  analysisEnded(): void {
+    this.analysesInProgress.dec();
+  }
+
   recordNegativeAlert(): void {
     this.negativeAlerts.inc();
   }
@@ -72,7 +76,6 @@ export class MetricsService {
     outcome: AnalysisMetricOutcome,
     durationSeconds: number,
   ): void {
-    this.analysesInProgress.dec();
     this.analysisResults.inc({ outcome });
     this.analysisDuration.observe({ outcome }, durationSeconds);
   }

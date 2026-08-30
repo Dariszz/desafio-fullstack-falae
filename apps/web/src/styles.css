@@ -323,7 +323,8 @@ legend {
 
 .filters button {
   flex: 0 0 auto;
-  padding: 0.5rem 0.72rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.8rem;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -345,6 +346,26 @@ legend {
 .skeleton-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.load-more-button {
+  min-height: 2.75rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--green);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--green);
+  font-weight: 700;
+}
+
+.pagination-notice {
+  margin-top: 1rem;
 }
 
 .review-card {
@@ -430,7 +451,8 @@ legend {
 }
 
 .review-footer button {
-  padding: 0;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.25rem;
   border: 0;
   background: none;
   color: var(--green);
