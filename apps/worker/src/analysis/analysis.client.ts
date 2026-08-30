@@ -34,10 +34,7 @@ export class AnalysisClient {
         signal: AbortSignal.timeout(this.config.analysisTimeoutMs),
       });
     } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Falha de conexão desconhecida.';
+      const message = thrownMessage(error);
       throw new AnalysisApiError(
         `Falha temporária ao chamar a análise: ${message}`,
         true,
@@ -62,6 +59,14 @@ export class AnalysisClient {
 
     return parseSuccess(body);
   }
+}
+
+function thrownMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (isRecord(error) && typeof error.message === 'string') {
+    return error.message;
+  }
+  return 'Falha de conexão desconhecida.';
 }
 
 function parseSuccess(value: unknown): AnalysisResult {

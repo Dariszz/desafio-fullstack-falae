@@ -97,6 +97,28 @@ describe('ReviewProcessor', () => {
     });
   });
 
+  it('marca como failed quando uma falha temporária esgota quatro tentativas', async () => {
+    const error = new AnalysisApiError('Serviço ainda indisponível.', true);
+    analyze.mockRejectedValue(error);
+
+    await expect(
+      new ReviewProcessor(database, analysisClient).process(job(3)),
+    ).rejects.toBe(error);
+
+    expect(update).toHaveBeenNthCalledWith(1, {
+      where: { id: review.id },
+      data: { status: ReviewStatus.PROCESSING, attempts: 4 },
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      where: { id: review.id },
+      data: {
+        status: ReviewStatus.FAILED,
+        lastError: error.message,
+        processedAt: expect.any(Date),
+      },
+    });
+  });
+
   it('marca como failed e interrompe retries para uma falha definitiva', async () => {
     analyze.mockRejectedValue(new AnalysisApiError('Payload inválido.', false));
 

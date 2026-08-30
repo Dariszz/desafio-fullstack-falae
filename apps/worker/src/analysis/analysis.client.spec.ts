@@ -60,6 +60,24 @@ describe('AnalysisClient', () => {
     });
   });
 
+  it('classifies 503 as retryable and respects Retry-After', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(
+        503,
+        {
+          error: { message: 'Serviço indisponível.', retryable: true },
+        },
+        { 'retry-after': '3' },
+      ),
+    );
+
+    await expect(new AnalysisClient().analyze(input())).rejects.toMatchObject({
+      message: 'Serviço indisponível.',
+      retryable: true,
+      retryAfterMs: 3000,
+    });
+  });
+
   it('does not retry a permanent 422 response', async () => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse(422, {
@@ -75,12 +93,27 @@ describe('AnalysisClient', () => {
   it('treats network errors as retryable', async () => {
     jest.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('offline'));
 
-    await expect(new AnalysisClient().analyze(input())).rejects.toBeInstanceOf(
-      AnalysisApiError,
-    );
-    await expect(new AnalysisClient().analyze(input())).rejects.toMatchObject({
+    const promise = new AnalysisClient().analyze(input());
+
+    await expect(promise).rejects.toBeInstanceOf(AnalysisApiError);
+    await expect(promise).rejects.toMatchObject({
       retryable: true,
     });
+  });
+
+  it('treats request timeout as retryable', async () => {
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new DOMException('Timed out', 'TimeoutError'));
+
+    const promise = new AnalysisClient().analyze(input());
+
+    await expect(promise).rejects.toBeInstanceOf(AnalysisApiError);
+    await expect(promise).rejects.toHaveProperty('retryable', true);
+    await expect(promise).rejects.toHaveProperty(
+      'message',
+      expect.stringContaining('Timed out'),
+    );
   });
 });
 
