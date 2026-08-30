@@ -155,6 +155,154 @@ services:
       retries: 10
       start_period: 3s
 
+  integration-postgres:
+    profiles: ["integration"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: falae_integration
+      POSTGRES_USER: falae_integration
+      POSTGRES_PASSWORD: falae_integration
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U falae_integration -d falae_integration"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
+  integration-redis:
+    profiles: ["integration"]
+    image: redis:8-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 2s
+
+  integration-mock-analysis-api:
+    profiles: ["integration"]
+    build:
+      context: ./mock-analysis-api
+    environment:
+      PORT: 4000
+      MIN_DELAY_MS: 10
+      MAX_DELAY_MS: 30
+      FAIL_EVERY_N: 0
+      RATE_LIMIT_MAX: 1000
+      RATE_LIMIT_WINDOW_MS: 10000
+      RETRY_AFTER_SECONDS: 1
+      SLOW_EXTRA_DELAY_MS: 100
+      ADMIN_TOKEN: integration-only
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 2s
+
+  integration-migrate:
+    profiles: ["integration"]
+    build:
+      context: .
+      target: migrator
+    environment:
+      DATABASE_URL: postgresql://falae_integration:falae_integration@integration-postgres:5432/falae_integration
+    command:
+      - sh
+      - -c
+      - npm run db:migrate:deploy && touch /tmp/migrations-applied && tail -f /dev/null
+    tmpfs:
+      - /tmp
+    depends_on:
+      integration-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/migrations-applied"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 2s
+
+  integration-api:
+    profiles: ["integration"]
+    build:
+      context: .
+      target: integration-api
+    init: true
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://falae_integration:falae_integration@integration-postgres:5432/falae_integration
+    depends_on:
+      integration-migrate:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
+  integration-worker:
+    profiles: ["integration"]
+    build:
+      context: .
+      target: integration-worker
+    init: true
+    environment:
+      DATABASE_URL: postgresql://falae_integration:falae_integration@integration-postgres:5432/falae_integration
+      REDIS_HOST: integration-redis
+      REDIS_PORT: 6379
+      ANALYSIS_API_URL: http://integration-mock-analysis-api:4000
+      ANALYSIS_TIMEOUT_MS: 2000
+      REVIEW_MAX_ATTEMPTS: 4
+      WORKER_METRICS_PORT: 3002
+    depends_on:
+      integration-migrate:
+        condition: service_healthy
+      integration-redis:
+        condition: service_healthy
+      integration-mock-analysis-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - --input-type=module
+        - -e
+        - "import Redis from 'ioredis'; const redis = new Redis({ host: process.env.REDIS_HOST, port: Number(process.env.REDIS_PORT) }); redis.ping().then(() => redis.quit()).then(() => process.exit(0)).catch(() => process.exit(1))"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
+  integration-tests:
+    profiles: ["integration"]
+    build:
+      context: .
+      target: integration-tests
+    init: true
+    environment:
+      INTEGRATION_API_URL: http://integration-api:3001
+      DATABASE_URL: postgresql://falae_integration:falae_integration@integration-postgres:5432/falae_integration
+      REDIS_HOST: integration-redis
+      REDIS_PORT: 6379
+    depends_on:
+      integration-api:
+        condition: service_healthy
+      integration-worker:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   redis-data:

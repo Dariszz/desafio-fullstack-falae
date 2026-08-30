@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "test:integration": "node tests/integration/run-compose.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

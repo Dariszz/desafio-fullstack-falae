@@ -19,6 +19,16 @@ COPY packages ./packages
 
 RUN npm run build
 
+FROM build AS integration-api
+
+ENV NODE_ENV=test
+CMD ["node", "apps/api/dist/main.js"]
+
+FROM build AS integration-worker
+
+ENV NODE_ENV=test
+CMD ["node", "apps/worker/dist/main.js"]
+
 FROM build AS production-dependencies
 
 RUN npm prune --omit=dev --ignore-scripts
@@ -61,6 +71,14 @@ FROM build AS migrator
 
 ENV NODE_ENV=production
 CMD ["npm", "run", "db:migrate:deploy"]
+
+FROM dependencies AS integration-tests
+
+ENV NODE_ENV=test
+COPY tests ./tests
+
+USER node
+CMD ["node", "--test", "tests/integration/reviews.infrastructure.test.mjs"]
 
 FROM nginx:1.29-alpine AS web
 

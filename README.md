@@ -275,7 +275,7 @@ Se a avaliação não estiver mais em `failed`, a API responde `409 Conflict`.
 | Fila | Redis 8 |
 | Entrega | Docker Compose, imagens multi-stage e Nginx |
 | Observabilidade | Logs JSON correlacionados e métricas Prometheus |
-| Qualidade | Jest, Vitest, ESLint e Prettier |
+| Qualidade | Jest, Vitest, Node Test Runner, ESLint e Prettier |
 
 NestJS foi escolhido pela familiaridade e por oferecer estrutura e injeção de
 dependências úteis para API e worker sem exigir camadas artificiais. API e worker
@@ -312,6 +312,28 @@ A suíte automatizada cobre, entre outros cenários:
 Além da suíte, foi executado um smoke test com todos os containers reais, desde
 o envio pela porta pública do frontend até a análise persistida pelo worker.
 
+### Integração com PostgreSQL e Redis reais
+
+A suíte de integração possui infraestrutura própria e isolada da execução de
+desenvolvimento. Um único comando constrói as imagens, inicia PostgreSQL, Redis,
+API, worker e mock, aplica as migrations, executa os testes e remove os
+containers e dados temporários ao final:
+
+```bash
+npm run test:integration
+```
+
+O teste envia uma avaliação duplicada pela API real e comprova:
+
+- idempotência e unicidade da avaliação no PostgreSQL;
+- criação única e publicação do transactional outbox;
+- existência e conclusão do job no Redis/BullMQ;
+- processamento assíncrono e persistência da análise;
+- criação do alerta para o sentimento negativo.
+
+O profile usa bancos sem portas públicas e armazenamento temporário, portanto
+não lê nem altera os volumes usados por `docker compose up`.
+
 ## Variáveis de ambiente
 
 Os valores e descrições estão em [`.env.example`](.env.example). As principais
@@ -338,7 +360,6 @@ seriam:
 - trilha de auditoria detalhada para reprocessamentos manuais;
 - tracing e alertas para outbox atrasado ou fila acumulada;
 - paginação e busca completas na interface;
-- testes de integração automatizados com PostgreSQL e Redis reais;
 - política explícita de retenção ou dead-letter queue operacional;
 - graceful degradation e readiness checks mais profundos;
 - CI executando testes, lint, build e scan das imagens.
