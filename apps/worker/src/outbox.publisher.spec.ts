@@ -10,6 +10,7 @@ import {
 import type { DatabaseService } from './database.service.js';
 import { OutboxPublisher } from './outbox.publisher.js';
 import type { QueueService } from './queue.service.js';
+import type { MetricsService } from './metrics.service.js';
 
 interface ClaimedEvent {
   id: string;
@@ -33,6 +34,8 @@ describe('OutboxPublisher', () => {
     },
   } as unknown as DatabaseService;
   const queue = { addReview } as unknown as QueueService;
+  const recordOutbox = jest.fn<MetricsService['recordOutbox']>();
+  const metrics = { recordOutbox } as unknown as MetricsService;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -50,7 +53,7 @@ describe('OutboxPublisher', () => {
   });
 
   it('publica o job e marca o evento como concluído', async () => {
-    await new OutboxPublisher(database, queue).publishPending();
+    await new OutboxPublisher(database, queue, metrics).publishPending();
 
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(addReview).toHaveBeenCalledWith(event.reviewId, event.id);
@@ -64,6 +67,7 @@ describe('OutboxPublisher', () => {
       review_id: event.reviewId,
       job_id: event.id,
     });
+    expect(recordOutbox).toHaveBeenCalledWith('published');
   });
 
   it('reagenda o evento quando o Redis está indisponível', async () => {
@@ -72,7 +76,7 @@ describe('OutboxPublisher', () => {
     addReview.mockRejectedValue(new Error('Redis indisponível.'));
 
     await expect(
-      new OutboxPublisher(database, queue).publishPending(),
+      new OutboxPublisher(database, queue, metrics).publishPending(),
     ).resolves.toBeUndefined();
 
     expect(update).toHaveBeenCalledWith({
@@ -82,5 +86,6 @@ describe('OutboxPublisher', () => {
         lastError: 'Redis indisponível.',
       },
     });
+    expect(recordOutbox).toHaveBeenCalledWith('failed');
   });
 });

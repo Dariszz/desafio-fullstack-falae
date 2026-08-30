@@ -12,6 +12,7 @@ import {
   jest,
 } from '@jest/globals';
 import type { DatabaseService } from '../database.service.js';
+import type { MetricsService } from '../metrics.service.js';
 import type { AnalysisClient } from './analysis.client.js';
 import { ReviewProcessor } from './review.processor.js';
 import { AnalysisApiError } from './analysis.types.js';
@@ -32,6 +33,12 @@ describe('ReviewProcessor', () => {
     client: { review: { findUnique, update } },
   } as unknown as DatabaseService;
   const analysisClient = { analyze } as unknown as AnalysisClient;
+  const analysisStarted = jest.fn<MetricsService['analysisStarted']>();
+  const analysisFinished = jest.fn<MetricsService['analysisFinished']>();
+  const metrics = {
+    analysisStarted,
+    analysisFinished,
+  } as unknown as MetricsService;
   let logSpy: jest.SpiedFunction<Logger['log']>;
   let warnSpy: jest.SpiedFunction<Logger['warn']>;
 
@@ -76,7 +83,7 @@ describe('ReviewProcessor', () => {
       processedAt,
     });
 
-    await new ReviewProcessor(database, analysisClient).process(job());
+    await new ReviewProcessor(database, analysisClient, metrics).process(job());
 
     expect(update).toHaveBeenNthCalledWith(1, {
       where: { id: review.id },
@@ -101,6 +108,11 @@ describe('ReviewProcessor', () => {
         attempt: 1,
       }),
     );
+    expect(analysisStarted).toHaveBeenCalledTimes(1);
+    expect(analysisFinished).toHaveBeenCalledWith(
+      'completed',
+      expect.any(Number),
+    );
   });
 
   it('mantém processing quando uma falha temporária ainda pode ser repetida', async () => {
@@ -108,7 +120,7 @@ describe('ReviewProcessor', () => {
     analyze.mockRejectedValue(error);
 
     await expect(
-      new ReviewProcessor(database, analysisClient).process(job(1)),
+      new ReviewProcessor(database, analysisClient, metrics).process(job(1)),
     ).rejects.toBe(error);
 
     expect(update).toHaveBeenLastCalledWith({
@@ -128,6 +140,7 @@ describe('ReviewProcessor', () => {
         retryable: true,
       }),
     );
+    expect(analysisFinished).toHaveBeenCalledWith('retry', expect.any(Number));
   });
 
   it('marca como failed quando uma falha temporária esgota quatro tentativas', async () => {
@@ -135,7 +148,7 @@ describe('ReviewProcessor', () => {
     analyze.mockRejectedValue(error);
 
     await expect(
-      new ReviewProcessor(database, analysisClient).process(job(3)),
+      new ReviewProcessor(database, analysisClient, metrics).process(job(3)),
     ).rejects.toBe(error);
 
     expect(update).toHaveBeenNthCalledWith(1, {
@@ -150,13 +163,14 @@ describe('ReviewProcessor', () => {
         processedAt: expect.any(Date),
       },
     });
+    expect(analysisFinished).toHaveBeenCalledWith('failed', expect.any(Number));
   });
 
   it('marca como failed e interrompe retries para uma falha definitiva', async () => {
     analyze.mockRejectedValue(new AnalysisApiError('Payload inválido.', false));
 
     await expect(
-      new ReviewProcessor(database, analysisClient).process(job()),
+      new ReviewProcessor(database, analysisClient, metrics).process(job()),
     ).rejects.toBeInstanceOf(UnrecoverableError);
 
     expect(update).toHaveBeenLastCalledWith({

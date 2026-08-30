@@ -50,6 +50,8 @@ services:
     container_name: desafio-worker
     init: true
     restart: unless-stopped
+    ports:
+      - "${WORKER_METRICS_PORT:-3002}:3002"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-falae}:${POSTGRES_PASSWORD:-falae_local}@postgres:5432/${POSTGRES_DB:-falae}
       REDIS_HOST: redis
@@ -57,6 +59,7 @@ services:
       ANALYSIS_API_URL: http://mock-analysis-api:4000
       ANALYSIS_TIMEOUT_MS: ${ANALYSIS_TIMEOUT_MS:-5000}
       REVIEW_MAX_ATTEMPTS: ${REVIEW_MAX_ATTEMPTS:-4}
+      WORKER_METRICS_PORT: 3002
     depends_on:
       migrate:
         condition: service_completed_successfully

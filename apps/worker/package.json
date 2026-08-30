@@ -16,6 +16,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/schedule": "^6.0.0",
+    "@prometheus-io/client": "^0.16.1",
     "bullmq": "^6.0.0",
     "ioredis": "^6.0.0",
     "reflect-metadata": "^0.2.0",

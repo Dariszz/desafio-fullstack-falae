@@ -13,6 +13,7 @@ import type {
 } from '@falae/contracts';
 import { ReviewStatus } from '@falae/database';
 import { CreateReviewDto } from './dto/create-review.dto.js';
+import { MetricsService } from '../metrics/metrics.service.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
 import {
   toApiReviewStatus,
@@ -26,7 +27,10 @@ import { ReviewsRepository } from './reviews.repository.js';
 export class ReviewsService {
   private readonly logger = new Logger(ReviewsService.name);
 
-  constructor(private readonly repository: ReviewsRepository) {}
+  constructor(
+    private readonly repository: ReviewsRepository,
+    private readonly metrics: MetricsService,
+  ) {}
 
   async create(
     dto: CreateReviewDto,
@@ -65,6 +69,7 @@ export class ReviewsService {
     const result = await this.repository.createOrGet(data);
 
     if (!result.created && !this.hasSameContent(result.review, data)) {
+      this.metrics.recordReview('idempotency_conflict');
       this.logger.warn({
         event: 'review.idempotency_conflict',
         review_id: result.review.id,
@@ -76,6 +81,8 @@ export class ReviewsService {
       );
     }
 
+    this.metrics.recordReview(result.created ? 'created' : 'duplicate');
+
     this.logger.log({
       event: result.created ? 'review.created' : 'review.duplicate_recognized',
       review_id: result.review.id,
@@ -83,7 +90,6 @@ export class ReviewsService {
       company_id: result.review.companyId,
       status: toApiReviewStatus(result.review.status),
     });
-
     return {
       id: result.review.id,
       external_id: result.review.externalId,
@@ -149,6 +155,7 @@ export class ReviewsService {
       company_id: reprocessed.companyId,
       status: toApiReviewStatus(reprocessed.status),
     });
+    this.metrics.recordReview('reprocessed');
 
     return {
       id: reprocessed.id,

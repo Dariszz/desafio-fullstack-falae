@@ -4,6 +4,7 @@ import type { AnalyzeReviewJobData } from '@falae/contracts';
 import { UnrecoverableError, type Job } from 'bullmq';
 import { loadWorkerConfig } from '../config.js';
 import { DatabaseService } from '../database.service.js';
+import { MetricsService } from '../metrics.service.js';
 import { AnalysisClient } from './analysis.client.js';
 import { AnalysisApiError } from './analysis.types.js';
 
@@ -15,6 +16,7 @@ export class ReviewProcessor {
   constructor(
     private readonly database: DatabaseService,
     private readonly analysisClient: AnalysisClient,
+    private readonly metrics: MetricsService,
   ) {}
 
   async process(job: Job<AnalyzeReviewJobData>): Promise<void> {
@@ -39,6 +41,7 @@ export class ReviewProcessor {
       attempt,
       max_attempts: this.config.maxAttempts,
     });
+    this.metrics.analysisStarted();
 
     try {
       const analysis = await this.analysisClient.analyze({
@@ -72,6 +75,10 @@ export class ReviewProcessor {
         sentiment: analysis.sentiment,
         category: analysis.category,
       });
+      this.metrics.analysisFinished(
+        'completed',
+        (Date.now() - startedAt) / 1000,
+      );
     } catch (error: unknown) {
       const analysisError =
         error instanceof AnalysisApiError
@@ -104,6 +111,10 @@ export class ReviewProcessor {
       };
       if (failed) this.logger.error(logEvent);
       else this.logger.warn(logEvent);
+      this.metrics.analysisFinished(
+        failed ? 'failed' : 'retry',
+        (Date.now() - startedAt) / 1000,
+      );
 
       if (!analysisError.retryable) {
         throw new UnrecoverableError(analysisError.message);

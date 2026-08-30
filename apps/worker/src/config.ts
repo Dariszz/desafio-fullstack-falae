@@ -5,6 +5,7 @@ export interface WorkerConfig {
   analysisApiUrl: string;
   analysisTimeoutMs: number;
   maxAttempts: number;
+  metricsPort: number;
 }
 
 export function loadWorkerConfig(
@@ -17,6 +18,7 @@ export function loadWorkerConfig(
     analysisApiUrl: env.ANALYSIS_API_URL?.trim() || 'http://localhost:4000',
     analysisTimeoutMs: positiveInteger(env.ANALYSIS_TIMEOUT_MS, 5000),
     maxAttempts: positiveInteger(env.REVIEW_MAX_ATTEMPTS, 4),
+    metricsPort: positiveInteger(env.WORKER_METRICS_PORT, 3002),
   };
 }
 

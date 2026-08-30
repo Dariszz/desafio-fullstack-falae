@@ -22,6 +22,8 @@ healthchecks estiverem saudáveis, acesse:
 | Interface web | http://localhost:3000 |
 | API | http://localhost:3001 |
 | Swagger | http://localhost:3001/docs |
+| Métricas da API | http://localhost:3001/metrics |
+| Métricas do worker | http://localhost:3002/metrics |
 | API fake de análise | http://localhost:4000 |
 
 Não é obrigatório criar um `.env`: o Compose possui valores locais seguros por
@@ -136,6 +138,24 @@ nome estável e campos de correlação, permitindo acompanhar o fluxo com
 - `attempt`, `max_attempts` e `duration_ms` explicam retries e desempenho;
 - o campo `event` diferencia criação, duplicidade, publicação, sucesso e falha.
 
+### Métricas
+
+API e worker expõem métricas no formato Prometheus, sem exigir um servidor
+Prometheus para executar o projeto. Os endpoints podem ser consultados
+diretamente:
+
+```bash
+curl http://localhost:3001/metrics
+curl http://localhost:3002/metrics
+```
+
+As métricas de negócio cobrem requisições HTTP, criação e duplicidade de
+avaliações, publicação do outbox, tentativas e resultados da análise, duração e
+quantidade de processamentos em andamento. Métricas padrão do processo Node.js
+também são coletadas. IDs de avaliação, job e evento não são usados como
+labels, evitando cardinalidade sem limite; a investigação individual permanece
+nos logs correlacionados.
+
 ### Timeout e retries
 
 Por padrão, cada chamada à API fake possui timeout de 5 segundos e no máximo
@@ -240,6 +260,7 @@ Se a avaliação não estiver mais em `failed`, a API responde `409 Conflict`.
 | Persistência | PostgreSQL 17 e Prisma 7 |
 | Fila | Redis 8 |
 | Entrega | Docker Compose, imagens multi-stage e Nginx |
+| Observabilidade | Logs JSON correlacionados e métricas Prometheus |
 | Qualidade | Jest, Vitest, ESLint e Prettier |
 
 NestJS foi escolhido pela familiaridade e por oferecer estrutura e injeção de
@@ -269,6 +290,7 @@ A suíte automatizada cobre, entre outros cenários:
 - persistência das transições `processing`, `completed` e `failed`;
 - timeout, `503`, esgotamento das tentativas e publicação do outbox;
 - regras e concorrência do reprocessamento de avaliações com falha;
+- registro e exposição das métricas da API e do worker;
 - carregamento da interface, submissão com `Idempotency-Key`, detalhe da análise
   e erro de comunicação.
 
@@ -284,6 +306,7 @@ configurações da aplicação são:
 | --- | --- | --- |
 | `WEB_PORT` | `3000` | Porta pública da interface |
 | `API_PORT` | `3001` | Porta pública da API |
+| `WORKER_METRICS_PORT` | `3002` | Porta pública das métricas do worker |
 | `POSTGRES_PORT` | `5432` | Porta pública do PostgreSQL |
 | `REDIS_PORT` | `6379` | Porta pública do Redis |
 | `MOCK_API_PORT` | `4000` | Porta pública da API fake |
@@ -298,7 +321,7 @@ seriam:
 
 - autenticação e autorização por empresa;
 - trilha de auditoria detalhada para reprocessamentos manuais;
-- métricas, tracing e alertas para outbox atrasado ou fila acumulada;
+- tracing e alertas para outbox atrasado ou fila acumulada;
 - paginação e busca completas na interface;
 - testes de integração automatizados com PostgreSQL e Redis reais;
 - política explícita de retenção ou dead-letter queue operacional;

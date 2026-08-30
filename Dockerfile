@@ -54,6 +54,7 @@ COPY --from=build --chown=node:node /app/packages/database/package.json ./packag
 COPY --from=build --chown=node:node /app/packages/database/dist ./packages/database/dist
 
 USER node
+EXPOSE 3002
 CMD ["node", "apps/worker/dist/main.js"]
 
 FROM build AS migrator

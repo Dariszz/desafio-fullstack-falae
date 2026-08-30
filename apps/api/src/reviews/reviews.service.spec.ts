@@ -18,6 +18,7 @@ import {
 } from '@jest/globals';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
+import type { MetricsService } from '../metrics/metrics.service.js';
 import { ReviewsRepository } from './reviews.repository.js';
 import { ReviewsService } from './reviews.service.js';
 
@@ -32,8 +33,10 @@ describe('ReviewsService', () => {
   let repository: RepositoryMock;
   let service: ReviewsService;
   let logSpy: jest.SpiedFunction<Logger['log']>;
+  const recordReview = jest.fn<MetricsService['recordReview']>();
 
   beforeEach(() => {
+    jest.clearAllMocks();
     logSpy = jest
       .spyOn(Logger.prototype, 'log')
       .mockImplementation(() => undefined);
@@ -44,7 +47,12 @@ describe('ReviewsService', () => {
       list: jest.fn(),
       reprocessFailed: jest.fn(),
     };
-    service = new ReviewsService(repository as unknown as ReviewsRepository);
+    service = new ReviewsService(
+      repository as unknown as ReviewsRepository,
+      {
+        recordReview,
+      } as unknown as MetricsService,
+    );
   });
 
   afterEach(() => {
@@ -78,6 +86,7 @@ describe('ReviewsService', () => {
       company_id: 'company-456',
       status: 'pending',
     });
+    expect(recordReview).toHaveBeenCalledWith('created');
   });
 
   it('recognizes an equivalent duplicate', async () => {
@@ -100,6 +109,7 @@ describe('ReviewsService', () => {
     await expect(
       service.create(makeDto(), 'review-order-123'),
     ).rejects.toBeInstanceOf(ConflictException);
+    expect(recordReview).toHaveBeenCalledWith('idempotency_conflict');
   });
 
   it.each([undefined, '', 'another-key'])(
@@ -180,6 +190,7 @@ describe('ReviewsService', () => {
       company_id: 'company-456',
       status: 'pending',
     });
+    expect(recordReview).toHaveBeenCalledWith('reprocessed');
   });
 
   it('rejects reprocessing when the review is not failed', async () => {

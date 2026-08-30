@@ -3,6 +3,7 @@ import { Interval } from '@nestjs/schedule';
 import { Prisma } from '@falae/database';
 import { DatabaseService } from './database.service.js';
 import { QueueService } from './queue.service.js';
+import { MetricsService } from './metrics.service.js';
 
 interface ClaimedEvent {
   id: string;
@@ -17,6 +18,7 @@ export class OutboxPublisher {
   constructor(
     private readonly database: DatabaseService,
     private readonly queue: QueueService,
+    private readonly metrics: MetricsService,
   ) {}
 
   @Interval(1000)
@@ -66,6 +68,7 @@ export class OutboxPublisher {
         review_id: event.reviewId,
         job_id: event.id,
       });
+      this.metrics.recordOutbox('published');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error({
@@ -75,6 +78,7 @@ export class OutboxPublisher {
         job_id: event.id,
         error: message,
       });
+      this.metrics.recordOutbox('failed');
       await this.database.client.outboxEvent.update({
         where: { id: event.id },
         data: {
