@@ -289,10 +289,11 @@ monorepo.
 
 ## Testes e qualidade
 
-Com Node.js 24 e npm 11 instalados:
+Com Node.js 24 e npm 11 instalados, use o lockfile para reproduzir exatamente as
+dependências validadas no projeto:
 
 ```bash
-npm install
+npm ci
 npm test
 npm run typecheck
 npm run lint
@@ -364,10 +365,10 @@ seriam:
 - autenticação e autorização por empresa;
 - trilha de auditoria detalhada para reprocessamentos manuais;
 - tracing e alertas para outbox atrasado ou fila acumulada;
-- paginação e busca completas na interface;
+- busca textual na interface;
 - política explícita de retenção ou dead-letter queue operacional;
 - graceful degradation e readiness checks mais profundos;
-- CI executando testes, lint, build e scan das imagens.
+- scan de segurança automatizado das imagens Docker.
 
 O lockfile atualmente reporta três alertas transitivos de severidade alta na
 cadeia de ferramentas do Prisma. O `npm audit` não oferece correção compatível

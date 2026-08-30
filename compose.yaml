@@ -3,7 +3,6 @@ services:
     build:
       context: .
       target: web
-    container_name: desafio-web
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:80"
@@ -21,7 +20,6 @@ services:
     build:
       context: .
       target: api
-    container_name: desafio-api
     init: true
     restart: unless-stopped
     ports:
@@ -47,7 +45,6 @@ services:
     build:
       context: .
       target: worker
-    container_name: desafio-worker
     init: true
     restart: unless-stopped
     ports:
@@ -83,7 +80,6 @@ services:
     build:
       context: .
       target: migrator
-    container_name: desafio-migrate
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-falae}:${POSTGRES_PASSWORD:-falae_local}@postgres:5432/${POSTGRES_DB:-falae}
     depends_on:
@@ -92,7 +88,6 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    container_name: desafio-postgres
     restart: unless-stopped
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
@@ -113,7 +108,6 @@ services:
 
   redis:
     image: redis:8-alpine
-    container_name: desafio-redis
     restart: unless-stopped
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
@@ -130,7 +124,6 @@ services:
   mock-analysis-api:
     build:
       context: ./mock-analysis-api
-    container_name: desafio-mock-analysis-api
     restart: unless-stopped
     ports:
       - "127.0.0.1:${MOCK_API_PORT:-4000}:4000"
