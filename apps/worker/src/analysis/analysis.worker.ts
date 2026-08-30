@@ -29,6 +29,7 @@ export class AnalysisWorker implements OnModuleInit, OnApplicationShutdown {
         connection: {
           host: this.config.redisHost,
           port: this.config.redisPort,
+          password: this.config.redisPassword,
         },
         concurrency: 5,
         settings: {

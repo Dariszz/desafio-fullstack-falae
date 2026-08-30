@@ -53,6 +53,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-falae}:${POSTGRES_PASSWORD:-falae_local}@postgres:5432/${POSTGRES_DB:-falae}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-falae_local}
       ANALYSIS_API_URL: http://mock-analysis-api:4000
       ANALYSIS_TIMEOUT_MS: ${ANALYSIS_TIMEOUT_MS:-5000}
       REVIEW_MAX_ATTEMPTS: ${REVIEW_MAX_ATTEMPTS:-4}
@@ -112,11 +113,20 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD:-falae_local}",
+      ]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-falae_local}
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -168,9 +178,20 @@ services:
   integration-redis:
     profiles: ["integration"]
     image: redis:8-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command:
+      [
+        "redis-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+        "--requirepass",
+        "falae_integration",
+      ]
+    environment:
+      REDIS_PASSWORD: falae_integration
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping']
       interval: 2s
       timeout: 3s
       retries: 15
@@ -257,6 +278,7 @@ services:
       DATABASE_URL: postgresql://falae_integration:falae_integration@integration-postgres:5432/falae_integration
       REDIS_HOST: integration-redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: falae_integration
       ANALYSIS_API_URL: http://integration-mock-analysis-api:4000
       ANALYSIS_TIMEOUT_MS: 2000
       REVIEW_MAX_ATTEMPTS: 4
@@ -292,6 +314,7 @@ services:
       DATABASE_URL: postgresql://falae_integration:falae_integration@integration-postgres:5432/falae_integration
       REDIS_HOST: integration-redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: falae_integration
     depends_on:
       integration-api:
         condition: service_healthy

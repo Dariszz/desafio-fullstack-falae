@@ -2,6 +2,7 @@ export interface WorkerConfig {
   databaseUrl: string;
   redisHost: string;
   redisPort: number;
+  redisPassword: string;
   analysisApiUrl: string;
   analysisTimeoutMs: number;
   maxAttempts: number;
@@ -16,6 +17,7 @@ export function loadWorkerConfig(
     databaseUrl: required(env.DATABASE_URL, 'DATABASE_URL'),
     redisHost: env.REDIS_HOST?.trim() || 'localhost',
     redisPort: positiveInteger(env.REDIS_PORT, 6379),
+    redisPassword: env.REDIS_PASSWORD?.trim() || 'falae_local',
     analysisApiUrl: env.ANALYSIS_API_URL?.trim() || 'http://localhost:4000',
     analysisTimeoutMs: positiveInteger(env.ANALYSIS_TIMEOUT_MS, 5000),
     maxAttempts: positiveInteger(env.REVIEW_MAX_ATTEMPTS, 4),

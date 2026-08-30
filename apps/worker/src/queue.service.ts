@@ -14,6 +14,7 @@ export class QueueService implements OnApplicationShutdown {
     connection: {
       host: this.config.redisHost,
       port: this.config.redisPort,
+      password: this.config.redisPassword,
     },
     defaultJobOptions: {
       attempts: this.config.maxAttempts,

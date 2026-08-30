@@ -11,19 +11,22 @@ const apiUrl = process.env.INTEGRATION_API_URL;
 const databaseUrl = process.env.DATABASE_URL;
 const redisHost = process.env.REDIS_HOST;
 const redisPort = Number(process.env.REDIS_PORT ?? 6379);
+const redisPassword = process.env.REDIS_PASSWORD;
 
 assert.ok(apiUrl, 'INTEGRATION_API_URL precisa estar configurada.');
 assert.ok(databaseUrl, 'DATABASE_URL precisa estar configurada.');
 assert.ok(redisHost, 'REDIS_HOST precisa estar configurado.');
+assert.ok(redisPassword, 'REDIS_PASSWORD precisa estar configurada.');
 
 const database = new pg.Pool({ connectionString: databaseUrl });
 const redis = new Redis({
   host: redisHost,
   port: redisPort,
+  password: redisPassword,
   maxRetriesPerRequest: null,
 });
 const queue = new Queue('review-analysis', {
-  connection: { host: redisHost, port: redisPort },
+  connection: { host: redisHost, port: redisPort, password: redisPassword },
 });
 const createdReviewIds = [];
 

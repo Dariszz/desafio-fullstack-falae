@@ -357,6 +357,7 @@ configurações da aplicação são:
 | `WORKER_METRICS_PORT` | `3002` | Porta pública das métricas do worker |
 | `POSTGRES_PORT` | `5432` | Porta local do PostgreSQL (`127.0.0.1`) |
 | `REDIS_PORT` | `6379` | Porta local do Redis (`127.0.0.1`) |
+| `REDIS_PASSWORD` | `falae_local` | Senha usada pelo Redis e pelo worker |
 | `MOCK_API_PORT` | `4000` | Porta local da API fake (`127.0.0.1`) |
 | `ANALYSIS_TIMEOUT_MS` | `5000` | Timeout de cada análise |
 | `REVIEW_MAX_ATTEMPTS` | `4` | Limite total de tentativas |
