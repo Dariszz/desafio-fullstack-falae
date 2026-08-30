@@ -80,9 +80,9 @@ COPY tests ./tests
 USER node
 CMD ["node", "--test", "tests/integration/reviews.infrastructure.test.mjs"]
 
-FROM nginx:1.29-alpine AS web
+FROM nginxinc/nginx-unprivileged:1.29-alpine AS web
 
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY --chown=nginx:nginx apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build --chown=nginx:nginx /app/apps/web/dist /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 8080

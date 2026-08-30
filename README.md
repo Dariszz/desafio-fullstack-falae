@@ -283,7 +283,7 @@ Se a avaliação não estiver mais em `failed`, a API responde `409 Conflict`.
 | Worker | NestJS, BullMQ e cliente HTTP nativo (`fetch`) |
 | Persistência | PostgreSQL 17 e Prisma 7 |
 | Fila | Redis 8 |
-| Entrega | Docker Compose, imagens multi-stage e Nginx |
+| Entrega | Docker Compose, imagens multi-stage e Nginx sem privilégios |
 | Observabilidade | Logs JSON correlacionados e métricas Prometheus |
 | Qualidade | Jest, Vitest, Node Test Runner, ESLint e Prettier |
 

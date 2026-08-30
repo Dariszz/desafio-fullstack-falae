@@ -5,7 +5,7 @@ services:
       target: web
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-3000}:80"
+      - "${WEB_PORT:-3000}:8080"
     depends_on:
       api:
         condition: service_healthy
