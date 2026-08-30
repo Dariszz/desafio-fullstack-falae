@@ -17,6 +17,7 @@ enum ReviewStatus {
 
 enum OutboxEventType {
   REVIEW_CREATED
+  REVIEW_REPROCESS_REQUESTED
 }
 
 model Review {
@@ -57,7 +58,7 @@ model OutboxEvent {
   updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   review      Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
-  @@unique([reviewId, type], map: "outbox_events_review_id_type_key")
+  @@index([reviewId, type], map: "outbox_events_review_id_type_idx")
   @@index([publishedAt, availableAt], map: "outbox_events_pending_idx")
   @@map("outbox_events")
 }

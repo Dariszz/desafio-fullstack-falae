@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import type {
   CreateReviewResponse,
+  ReprocessReviewResponse,
   ReviewDetail,
   ReviewsListResponse,
 } from '@falae/contracts';
@@ -94,6 +95,30 @@ export class ReviewsController {
   })
   list(@Query() query: ListReviewsQueryDto): Promise<ReviewsListResponse> {
     return this.reviewsService.list(query);
+  }
+
+  @Post(':id/reprocess')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Reagenda uma avaliação que terminou com falha' })
+  @ApiAcceptedResponse({
+    description: 'Avaliação retornada ao estado pendente.',
+    schema: {
+      example: {
+        id: 'f88e5c5c-276f-45b1-a374-2232b4463302',
+        external_id: 'review-order-123',
+        status: 'pending',
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Identificador inválido.' })
+  @ApiNotFoundResponse({ description: 'Avaliação não encontrada.' })
+  @ApiConflictResponse({
+    description: 'A avaliação não está com status de falha.',
+  })
+  reprocess(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ): Promise<ReprocessReviewResponse> {
+    return this.reviewsService.reprocess(id);
   }
 
   @Get(':id')

@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import type {
   CreateReviewResponse,
+  ReprocessReviewResponse,
   ReviewDetail,
   ReviewsListResponse,
 } from '@falae/contracts';
+import { ReviewStatus } from '@falae/database';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
 import {
@@ -100,6 +102,34 @@ export class ReviewsService {
     }
 
     return toReviewDetail(review);
+  }
+
+  async reprocess(id: string): Promise<ReprocessReviewResponse> {
+    const review = await this.repository.findById(id);
+
+    if (!review) {
+      throw new NotFoundException('Avaliação não encontrada.');
+    }
+
+    if (review.status !== ReviewStatus.FAILED) {
+      throw new ConflictException(
+        'Somente avaliações com falha podem ser reprocessadas.',
+      );
+    }
+
+    const reprocessed = await this.repository.reprocessFailed(id);
+
+    if (!reprocessed) {
+      throw new ConflictException(
+        'A avaliação já foi reprocessada ou teve seu estado alterado.',
+      );
+    }
+
+    return {
+      id: reprocessed.id,
+      external_id: reprocessed.externalId,
+      status: toApiReviewStatus(reprocessed.status),
+    };
   }
 
   private hasSameContent(

@@ -23,8 +23,8 @@ export class QueueService implements OnApplicationShutdown {
     },
   });
 
-  async addReview(reviewId: string): Promise<void> {
-    await this.queue.add(ANALYZE_REVIEW_JOB, { reviewId }, { jobId: reviewId });
+  async addReview(reviewId: string, eventId: string): Promise<void> {
+    await this.queue.add(ANALYZE_REVIEW_JOB, { reviewId }, { jobId: eventId });
   }
 
   async onApplicationShutdown(): Promise<void> {

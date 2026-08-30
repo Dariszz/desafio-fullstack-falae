@@ -14,7 +14,10 @@ import { ReviewsRepository } from './reviews.repository.js';
 import { ReviewsService } from './reviews.service.js';
 
 type RepositoryMock = jest.Mocked<
-  Pick<ReviewsRepository, 'createOrGet' | 'findById' | 'list'>
+  Pick<
+    ReviewsRepository,
+    'createOrGet' | 'findById' | 'list' | 'reprocessFailed'
+  >
 >;
 
 describe('ReviewsService', () => {
@@ -26,6 +29,7 @@ describe('ReviewsService', () => {
       createOrGet: jest.fn(),
       findById: jest.fn(),
       list: jest.fn(),
+      reprocessFailed: jest.fn(),
     };
     service = new ReviewsService(repository as unknown as ReviewsRepository);
   });
@@ -127,6 +131,53 @@ describe('ReviewsService', () => {
     await expect(
       service.findOne('934f0799-4826-4aa7-b167-e830ab6f6256'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('reprocesses a failed review and returns it to pending', async () => {
+    repository.findById.mockResolvedValue(
+      makeReview({ status: DatabaseReviewStatus.FAILED, attempts: 4 }),
+    );
+    repository.reprocessFailed.mockResolvedValue(makeReview());
+
+    await expect(
+      service.reprocess('f88e5c5c-276f-45b1-a374-2232b4463302'),
+    ).resolves.toEqual({
+      id: 'f88e5c5c-276f-45b1-a374-2232b4463302',
+      external_id: 'review-order-123',
+      status: 'pending',
+    });
+    expect(repository.reprocessFailed).toHaveBeenCalledWith(
+      'f88e5c5c-276f-45b1-a374-2232b4463302',
+    );
+  });
+
+  it('rejects reprocessing when the review is not failed', async () => {
+    repository.findById.mockResolvedValue(makeReview());
+
+    await expect(
+      service.reprocess('f88e5c5c-276f-45b1-a374-2232b4463302'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.reprocessFailed).not.toHaveBeenCalled();
+  });
+
+  it('throws when the review to reprocess does not exist', async () => {
+    repository.findById.mockResolvedValue(null);
+
+    await expect(
+      service.reprocess('f88e5c5c-276f-45b1-a374-2232b4463302'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(repository.reprocessFailed).not.toHaveBeenCalled();
+  });
+
+  it('rejects a concurrent reprocessing attempt', async () => {
+    repository.findById.mockResolvedValue(
+      makeReview({ status: DatabaseReviewStatus.FAILED }),
+    );
+    repository.reprocessFailed.mockResolvedValue(null);
+
+    await expect(
+      service.reprocess('f88e5c5c-276f-45b1-a374-2232b4463302'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
 

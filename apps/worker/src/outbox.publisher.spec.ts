@@ -23,7 +23,8 @@ describe('OutboxPublisher', () => {
   };
   const queryRaw = jest.fn<() => Promise<ClaimedEvent[]>>();
   const update = jest.fn<(args: unknown) => Promise<unknown>>();
-  const addReview = jest.fn<(reviewId: string) => Promise<void>>();
+  const addReview =
+    jest.fn<(reviewId: string, eventId: string) => Promise<void>>();
   const database = {
     client: {
       $queryRaw: queryRaw,
@@ -48,7 +49,7 @@ describe('OutboxPublisher', () => {
     await new OutboxPublisher(database, queue).publishPending();
 
     expect(queryRaw).toHaveBeenCalledTimes(1);
-    expect(addReview).toHaveBeenCalledWith(event.reviewId);
+    expect(addReview).toHaveBeenCalledWith(event.reviewId, event.id);
     expect(update).toHaveBeenCalledWith({
       where: { id: event.id },
       data: { publishedAt: expect.any(Date), lastError: null },

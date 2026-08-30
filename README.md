@@ -101,7 +101,8 @@ apenas pela aplicação.
 
 - Repetir a mesma avaliação retorna o registro existente e `duplicate: true`.
 - Reutilizar a chave com conteúdo diferente retorna `409 Conflict`.
-- A restrição única do outbox impede criar mais de um evento para a avaliação.
+- A criação inicial e seu evento de outbox acontecem uma única vez na mesma
+  transação; reprocessamentos explícitos geram eventos independentes.
 
 ### Transactional outbox
 
@@ -116,8 +117,8 @@ O publisher:
   mesmo lote simultaneamente;
 - aplica um lease de 30 segundos, para que um evento volte a ficar disponível se
   o processo cair durante a publicação;
-- usa o ID da avaliação como `jobId` no BullMQ, tornando uma republicação
-  idempotente;
+- usa o ID do evento de outbox como `jobId` no BullMQ, tornando a republicação
+  do mesmo evento idempotente e permitindo reprocessamentos posteriores;
 - registra tentativas e último erro do outbox.
 
 Essa combinação cobre inclusive a falha entre adicionar o job no Redis e marcar
@@ -158,6 +159,7 @@ http://localhost:3001/docs.
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | `POST` | `/reviews` | Persiste e agenda uma avaliação |
+| `POST` | `/reviews/:id/reprocess` | Reagenda uma avaliação com status `failed` |
 | `GET` | `/reviews` | Lista avaliações com paginação e filtro por status |
 | `GET` | `/reviews/:id` | Retorna avaliação, análise e último erro |
 | `GET` | `/health` | Healthcheck da API |
@@ -199,6 +201,19 @@ Parâmetros aceitos:
 - `limit`: entre 1 e 100;
 - `status`: `pending`, `processing`, `completed` ou `failed`.
 
+### Reprocessar uma falha
+
+Somente avaliações com status `failed` podem ser reprocessadas. A operação
+responde imediatamente com `202 Accepted`; um novo evento é gravado no outbox e
+o processamento continua de forma assíncrona.
+
+```bash
+curl --request POST \
+  http://localhost:3001/reviews/0d952735-bdd3-4a78-9260-2a26765fc654/reprocess
+```
+
+Se a avaliação não estiver mais em `failed`, a API responde `409 Conflict`.
+
 ## Tecnologias
 
 | Área | Escolha |
@@ -236,6 +251,8 @@ A suíte automatizada cobre, entre outros cenários:
 - validação do contrato, listagem, filtro e detalhe;
 - sucesso e erros temporários/definitivos da API de análise;
 - persistência das transições `processing`, `completed` e `failed`;
+- timeout, `503`, esgotamento das tentativas e publicação do outbox;
+- regras e concorrência do reprocessamento de avaliações com falha;
 - carregamento da interface, submissão com `Idempotency-Key`, detalhe da análise
   e erro de comunicação.
 
@@ -264,7 +281,7 @@ o projeto simples de executar. Em uma evolução de produção, os próximos pas
 seriam:
 
 - autenticação e autorização por empresa;
-- endpoint de reprocessamento com trilha de auditoria;
+- trilha de auditoria detalhada para reprocessamentos manuais;
 - métricas, tracing e alertas para outbox atrasado ou fila acumulada;
 - paginação e busca completas na interface;
 - testes de integração automatizados com PostgreSQL e Redis reais;

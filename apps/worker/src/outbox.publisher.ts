@@ -55,7 +55,7 @@ export class OutboxPublisher {
 
   private async publish(event: ClaimedEvent): Promise<void> {
     try {
-      await this.queue.addReview(event.reviewId);
+      await this.queue.addReview(event.reviewId, event.id);
       await this.database.client.outboxEvent.update({
         where: { id: event.id },
         data: { publishedAt: new Date(), lastError: null },

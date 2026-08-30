@@ -3,7 +3,7 @@ import {
   OutboxEventType,
   Prisma,
   type Review,
-  type ReviewStatus,
+  ReviewStatus,
 } from '@falae/database';
 import { DatabaseService } from '../database/database.service.js';
 
@@ -86,6 +86,47 @@ export class ReviewsRepository {
 
   findById(id: string): Promise<Review | null> {
     return this.database.client.review.findUnique({ where: { id } });
+  }
+
+  reprocessFailed(id: string): Promise<Review | null> {
+    return this.database.client.$transaction(async (transaction) => {
+      const updated = await transaction.review.updateMany({
+        where: { id, status: ReviewStatus.FAILED },
+        data: {
+          status: ReviewStatus.PENDING,
+          attempts: 0,
+          lastError: null,
+          analysisSentiment: null,
+          analysisCategory: null,
+          analysisConfidence: null,
+          analysisKeywords: Prisma.DbNull,
+          analysisRequestId: null,
+          analysisProcessedAt: null,
+          processedAt: null,
+        },
+      });
+
+      if (updated.count === 0) return null;
+
+      const review = await transaction.review.findUniqueOrThrow({
+        where: { id },
+      });
+
+      await transaction.outboxEvent.create({
+        data: {
+          reviewId: review.id,
+          type: OutboxEventType.REVIEW_REPROCESS_REQUESTED,
+          payload: {
+            review_id: review.id,
+            external_id: review.externalId,
+            company_id: review.companyId,
+            requested_at: new Date().toISOString(),
+          },
+        },
+      });
+
+      return review;
+    });
   }
 
   async list(options: {

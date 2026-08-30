@@ -40,6 +40,12 @@ export interface CreateReviewResponse {
   duplicate: boolean;
 }
 
+export interface ReprocessReviewResponse {
+  id: string;
+  external_id: string;
+  status: ReviewStatus;
+}
+
 export interface PaginationMeta {
   page: number;
   limit: number;
