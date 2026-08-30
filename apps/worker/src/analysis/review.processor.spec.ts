@@ -28,16 +28,28 @@ describe('ReviewProcessor', () => {
   };
   const findUnique = jest.fn<() => Promise<typeof review | null>>();
   const update = jest.fn<(args: unknown) => Promise<typeof review>>();
+  const upsert = jest.fn<(args: unknown) => Promise<unknown>>();
+  const transaction =
+    jest.fn<
+      (
+        callback: (client: {
+          review: { update: typeof update };
+          reviewAlert: { upsert: typeof upsert };
+        }) => Promise<void>,
+      ) => Promise<void>
+    >();
   const analyze = jest.fn<AnalysisClient['analyze']>();
   const database = {
-    client: { review: { findUnique, update } },
+    client: { review: { findUnique, update }, $transaction: transaction },
   } as unknown as DatabaseService;
   const analysisClient = { analyze } as unknown as AnalysisClient;
   const analysisStarted = jest.fn<MetricsService['analysisStarted']>();
   const analysisFinished = jest.fn<MetricsService['analysisFinished']>();
+  const recordNegativeAlert = jest.fn<MetricsService['recordNegativeAlert']>();
   const metrics = {
     analysisStarted,
     analysisFinished,
+    recordNegativeAlert,
   } as unknown as MetricsService;
   let logSpy: jest.SpiedFunction<Logger['log']>;
   let warnSpy: jest.SpiedFunction<Logger['warn']>;
@@ -58,6 +70,10 @@ describe('ReviewProcessor', () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     findUnique.mockResolvedValue(review);
     update.mockResolvedValue(review);
+    upsert.mockResolvedValue({});
+    transaction.mockImplementation(async (callback) =>
+      callback({ review: { update }, reviewAlert: { upsert } }),
+    );
   });
 
   afterEach(() => {
@@ -108,11 +124,43 @@ describe('ReviewProcessor', () => {
         attempt: 1,
       }),
     );
+    expect(upsert).toHaveBeenCalledWith({
+      where: { reviewId: review.id },
+      create: {
+        reviewId: review.id,
+        type: 'NEGATIVE_REVIEW',
+        message: 'Avaliação negativa na categoria delivery.',
+      },
+      update: { message: 'Avaliação negativa na categoria delivery.' },
+    });
+    expect(warnSpy).toHaveBeenCalledWith({
+      event: 'alert.negative_review_created',
+      review_id: review.id,
+      job_id: 'job-id',
+      category: 'delivery',
+    });
+    expect(recordNegativeAlert).toHaveBeenCalledTimes(1);
     expect(analysisStarted).toHaveBeenCalledTimes(1);
     expect(analysisFinished).toHaveBeenCalledWith(
       'completed',
       expect.any(Number),
     );
+  });
+
+  it('não cria alerta para uma análise positiva', async () => {
+    analyze.mockResolvedValue({
+      requestId: 'request-id',
+      sentiment: 'positive',
+      category: 'service',
+      confidence: 0.95,
+      matchedKeywords: ['excelente'],
+      processedAt: new Date('2026-08-29T12:00:00.000Z'),
+    });
+
+    await new ReviewProcessor(database, analysisClient, metrics).process(job());
+
+    expect(upsert).not.toHaveBeenCalled();
+    expect(recordNegativeAlert).not.toHaveBeenCalled();
   });
 
   it('mantém processing quando uma falha temporária ainda pode ser repetida', async () => {

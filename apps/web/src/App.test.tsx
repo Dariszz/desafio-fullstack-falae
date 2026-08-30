@@ -24,6 +24,12 @@ const review: ReviewSummary = {
     matched_keywords: ['demorou', 'frio'],
     processed_at: '2026-08-29T12:00:02.000Z',
   },
+  alert: {
+    id: '2608e2ac-74b9-4546-bb6b-b93fdd8e6a23',
+    type: 'negative_review',
+    message: 'Avaliação negativa na categoria delivery.',
+    created_at: '2026-08-29T12:00:02.000Z',
+  },
   created_at: '2026-08-29T12:00:00.000Z',
   processed_at: '2026-08-29T12:00:02.000Z',
 };
@@ -50,8 +56,12 @@ describe('App', () => {
 
     expect(await screen.findByText('company-456')).toBeInTheDocument();
     expect(screen.getByText('Concluída')).toBeInTheDocument();
+    expect(screen.getByText('Alerta negativo')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /ver detalhes/i }));
 
+    expect(
+      await screen.findByText(/atenção: avaliação negativa/i),
+    ).toBeInTheDocument();
     expect(await screen.findByText('Negativo')).toBeInTheDocument();
     expect(screen.getByText('91%')).toBeInTheDocument();
     expect(screen.getByText('delivery')).toBeInTheDocument();
@@ -134,6 +144,7 @@ describe('App', () => {
       status: 'failed',
       attempts: 4,
       analysis: null,
+      alert: null,
       processed_at: '2026-08-29T12:00:08.000Z',
     };
     const pendingReview: ReviewSummary = {
@@ -182,6 +193,7 @@ describe('App', () => {
       status: 'failed',
       attempts: 4,
       analysis: null,
+      alert: null,
     };
     const fetchMock = vi
       .fn<typeof fetch>()

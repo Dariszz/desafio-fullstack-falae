@@ -4,10 +4,8 @@ import type {
   ReviewStatus as ApiReviewStatus,
   ReviewSummary,
 } from '@falae/contracts';
-import {
-  ReviewStatus as DatabaseReviewStatus,
-  type Review,
-} from '@falae/database';
+import { ReviewStatus as DatabaseReviewStatus } from '@falae/database';
+import type { ReviewWithAlert } from './reviews.repository.js';
 
 const STATUS_MAP: Record<DatabaseReviewStatus, ApiReviewStatus> = {
   [DatabaseReviewStatus.PENDING]: 'pending',
@@ -35,7 +33,7 @@ export function toApiReviewStatus(
   return STATUS_MAP[status];
 }
 
-export function toReviewSummary(review: Review): ReviewSummary {
+export function toReviewSummary(review: ReviewWithAlert): ReviewSummary {
   return {
     id: review.id,
     external_id: review.externalId,
@@ -45,12 +43,20 @@ export function toReviewSummary(review: Review): ReviewSummary {
     status: toApiReviewStatus(review.status),
     attempts: review.attempts,
     analysis: toAnalysis(review),
+    alert: review.alert
+      ? {
+          id: review.alert.id,
+          type: 'negative_review',
+          message: review.alert.message,
+          created_at: review.alert.createdAt.toISOString(),
+        }
+      : null,
     created_at: review.createdAt.toISOString(),
     processed_at: review.processedAt?.toISOString() ?? null,
   };
 }
 
-export function toReviewDetail(review: Review): ReviewDetail {
+export function toReviewDetail(review: ReviewWithAlert): ReviewDetail {
   return {
     ...toReviewSummary(review),
     last_error: review.lastError,
@@ -58,7 +64,7 @@ export function toReviewDetail(review: Review): ReviewDetail {
   };
 }
 
-function toAnalysis(review: Review): ReviewAnalysis | null {
+function toAnalysis(review: ReviewWithAlert): ReviewAnalysis | null {
   if (
     review.analysisSentiment === null ||
     review.analysisCategory === null ||

@@ -4,10 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  ReviewStatus as DatabaseReviewStatus,
-  type Review,
-} from '@falae/database';
+import { ReviewStatus as DatabaseReviewStatus } from '@falae/database';
 import {
   afterEach,
   beforeEach,
@@ -20,6 +17,7 @@ import { CreateReviewDto } from './dto/create-review.dto.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
 import type { MetricsService } from '../metrics/metrics.service.js';
 import { ReviewsRepository } from './reviews.repository.js';
+import type { ReviewWithAlert } from './reviews.repository.js';
 import { ReviewsService } from './reviews.service.js';
 
 type RepositoryMock = jest.Mocked<
@@ -156,6 +154,34 @@ describe('ReviewsService', () => {
       external_id: 'review-order-123',
       status: 'pending',
       analysis: null,
+      alert: null,
+    });
+  });
+
+  it('returns a persisted negative review alert', async () => {
+    const createdAt = new Date('2026-08-28T12:00:05.000Z');
+    repository.list.mockResolvedValue({
+      reviews: [
+        makeReview({
+          alert: {
+            id: '2608e2ac-74b9-4546-bb6b-b93fdd8e6a23',
+            reviewId: 'f88e5c5c-276f-45b1-a374-2232b4463302',
+            type: 'NEGATIVE_REVIEW',
+            message: 'Avaliação negativa na categoria delivery.',
+            createdAt,
+          },
+        }),
+      ],
+      total: 1,
+    });
+
+    const result = await service.list(new ListReviewsQueryDto());
+
+    expect(result.data[0]?.alert).toEqual({
+      id: '2608e2ac-74b9-4546-bb6b-b93fdd8e6a23',
+      type: 'negative_review',
+      message: 'Avaliação negativa na categoria delivery.',
+      created_at: createdAt.toISOString(),
     });
   });
 
@@ -232,7 +258,7 @@ function makeDto(): CreateReviewDto {
   };
 }
 
-function makeReview(overrides: Partial<Review> = {}): Review {
+function makeReview(overrides: Partial<ReviewWithAlert> = {}): ReviewWithAlert {
   const timestamp = new Date('2026-08-28T12:00:00.000Z');
 
   return {
@@ -253,6 +279,7 @@ function makeReview(overrides: Partial<Review> = {}): Review {
     createdAt: timestamp,
     updatedAt: timestamp,
     processedAt: null,
+    alert: null,
     ...overrides,
   };
 }

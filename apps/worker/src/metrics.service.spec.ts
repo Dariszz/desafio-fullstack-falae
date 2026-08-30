@@ -7,6 +7,7 @@ describe('MetricsService', () => {
 
     service.recordOutbox('published');
     service.analysisStarted();
+    service.recordNegativeAlert();
     service.analysisFinished('completed', 0.75);
 
     const output = await service.metrics();
@@ -18,5 +19,6 @@ describe('MetricsService', () => {
     expect(output).toContain('outcome="completed"');
     expect(output).toContain('falae_worker_analysis_duration_seconds');
     expect(output).toContain('falae_worker_analyses_in_progress');
+    expect(output).toContain('falae_worker_negative_alerts_total');
   });
 });

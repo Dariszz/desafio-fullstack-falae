@@ -91,7 +91,8 @@ mock-analysis-api/
 4. O publisher consulta o outbox e publica um job no Redis.
 5. O worker altera o status para `processing` e chama a API fake.
 6. Sucesso, erro e número de tentativas são persistidos no PostgreSQL.
-7. A interface atualiza automaticamente a lista enquanto houver itens ativos.
+7. Uma análise negativa cria um alerta persistente na mesma transação.
+8. A interface atualiza automaticamente a lista enquanto houver itens ativos.
 
 ## Decisões de confiabilidade
 
@@ -136,7 +137,8 @@ nome estável e campos de correlação, permitindo acompanhar o fluxo com
 - `outbox_event_id` identifica a publicação transacional;
 - `job_id` relaciona a mensagem do BullMQ ao evento do outbox;
 - `attempt`, `max_attempts` e `duration_ms` explicam retries e desempenho;
-- o campo `event` diferencia criação, duplicidade, publicação, sucesso e falha.
+- o campo `event` diferencia criação, duplicidade, publicação, alerta, sucesso e
+  falha.
 
 ### Métricas
 
@@ -150,11 +152,11 @@ curl http://localhost:3002/metrics
 ```
 
 As métricas de negócio cobrem requisições HTTP, criação e duplicidade de
-avaliações, publicação do outbox, tentativas e resultados da análise, duração e
-quantidade de processamentos em andamento. Métricas padrão do processo Node.js
-também são coletadas. IDs de avaliação, job e evento não são usados como
-labels, evitando cardinalidade sem limite; a investigação individual permanece
-nos logs correlacionados.
+avaliações, publicação do outbox, tentativas e resultados da análise, alertas
+negativos, duração e quantidade de processamentos em andamento. Métricas padrão
+do processo Node.js também são coletadas. IDs de avaliação, job e evento não
+são usados como labels, evitando cardinalidade sem limite; a investigação
+individual permanece nos logs correlacionados.
 
 ### Timeout e retries
 
@@ -186,6 +188,18 @@ operacional de WebSocket ou SSE neste recorte.
 Avaliações com falha exibem a ação **Tentar novamente**. A interface comunica o
 resultado do pedido, atualiza a lista e volta a acompanhar automaticamente o
 novo processamento.
+
+### Alertas para avaliações negativas
+
+Quando a API de análise retorna `sentiment: negative`, o worker cria um registro
+em `review_alerts` na mesma transação que conclui a avaliação. A relação única
+por avaliação e o uso de `upsert` tornam a criação idempotente mesmo diante de
+reexecuções do job.
+
+O alerta é devolvido junto da avaliação e destacado na lista e nos detalhes da
+interface. Neste recorte ele representa um alerta operacional persistente; uma
+integração real com e-mail, Slack ou ferramenta de atendimento ficaria isolada
+como consumidor posterior desse registro.
 
 ## API
 
@@ -291,6 +305,7 @@ A suíte automatizada cobre, entre outros cenários:
 - timeout, `503`, esgotamento das tentativas e publicação do outbox;
 - regras e concorrência do reprocessamento de avaliações com falha;
 - registro e exposição das métricas da API e do worker;
+- criação transacional de alerta apenas para avaliações negativas;
 - carregamento da interface, submissão com `Idempotency-Key`, detalhe da análise
   e erro de comunicação.
 

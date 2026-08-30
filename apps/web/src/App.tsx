@@ -393,6 +393,12 @@ function ReviewCard({
         <span>{review.external_id}</span>
       </div>
       <p className="review-comment">“{review.comment}”</p>
+      {review.alert && (
+        <div className="negative-alert negative-alert-compact">
+          <strong>Alerta negativo</strong>
+          <span>{review.alert.message}</span>
+        </div>
+      )}
       <div className="review-footer">
         <span className="stars" aria-label={`Nota ${review.rating} de 5`}>
           {'★'.repeat(review.rating)}
@@ -443,6 +449,14 @@ function ReviewDetails({ review }: { review: ReviewDetail }) {
         </div>
       </dl>
       <blockquote>{review.comment}</blockquote>
+
+      {review.alert && (
+        <div className="negative-alert" role="alert">
+          <strong>Atenção: avaliação negativa</strong>
+          <span>{review.alert.message}</span>
+          <small>Criado em {formatDate(review.alert.created_at)}</small>
+        </div>
+      )}
 
       {review.analysis ? (
         <section className="analysis-card">

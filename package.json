@@ -17,6 +17,7 @@
     "db:migrate": "npm run migrate --workspace @falae/database",
     "db:migrate:deploy": "npm run migrate:deploy --workspace @falae/database",
     "postinstall": "npm run db:generate",
+    "pretest": "npm run build --workspace @falae/contracts && npm run build --workspace @falae/database",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",

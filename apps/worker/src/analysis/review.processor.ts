@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ReviewStatus } from '@falae/database';
+import { AlertType, ReviewStatus } from '@falae/database';
 import type { AnalyzeReviewJobData } from '@falae/contracts';
 import { UnrecoverableError, type Job } from 'bullmq';
 import { loadWorkerConfig } from '../config.js';
@@ -52,19 +52,35 @@ export class ReviewProcessor {
         requestId: `${review.id}-${attempt}`,
       });
 
-      await this.database.client.review.update({
-        where: { id: review.id },
-        data: {
-          status: ReviewStatus.COMPLETED,
-          lastError: null,
-          analysisSentiment: analysis.sentiment,
-          analysisCategory: analysis.category,
-          analysisConfidence: analysis.confidence,
-          analysisKeywords: analysis.matchedKeywords,
-          analysisRequestId: analysis.requestId,
-          analysisProcessedAt: analysis.processedAt,
-          processedAt: new Date(),
-        },
+      const isNegative = analysis.sentiment === 'negative';
+      await this.database.client.$transaction(async (transaction) => {
+        await transaction.review.update({
+          where: { id: review.id },
+          data: {
+            status: ReviewStatus.COMPLETED,
+            lastError: null,
+            analysisSentiment: analysis.sentiment,
+            analysisCategory: analysis.category,
+            analysisConfidence: analysis.confidence,
+            analysisKeywords: analysis.matchedKeywords,
+            analysisRequestId: analysis.requestId,
+            analysisProcessedAt: analysis.processedAt,
+            processedAt: new Date(),
+          },
+        });
+
+        if (isNegative) {
+          const message = `Avaliação negativa na categoria ${analysis.category}.`;
+          await transaction.reviewAlert.upsert({
+            where: { reviewId: review.id },
+            create: {
+              reviewId: review.id,
+              type: AlertType.NEGATIVE_REVIEW,
+              message,
+            },
+            update: { message },
+          });
+        }
       });
       this.logger.log({
         event: 'analysis.completed',
@@ -75,6 +91,15 @@ export class ReviewProcessor {
         sentiment: analysis.sentiment,
         category: analysis.category,
       });
+      if (isNegative) {
+        this.logger.warn({
+          event: 'alert.negative_review_created',
+          review_id: review.id,
+          job_id: jobId,
+          category: analysis.category,
+        });
+        this.metrics.recordNegativeAlert();
+      }
       this.metrics.analysisFinished(
         'completed',
         (Date.now() - startedAt) / 1000,

@@ -396,6 +396,34 @@ legend {
   -webkit-line-clamp: 2;
 }
 
+.negative-alert {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #edb8b1;
+  border-left: 4px solid var(--danger);
+  border-radius: 0.7rem;
+  background: #fff2f0;
+  color: #81342f;
+}
+
+.negative-alert span,
+.negative-alert small {
+  line-height: 1.4;
+}
+
+.negative-alert small {
+  color: #9b5a54;
+}
+
+.negative-alert-compact {
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.6rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.76rem;
+}
+
 .review-footer {
   padding-top: 0.75rem;
   border-top: 1px solid #edf0ed;

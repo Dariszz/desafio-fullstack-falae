@@ -41,6 +41,11 @@ export class MetricsService {
     help: 'Quantidade atual de análises em execução.',
     registers: [this.registry],
   });
+  private readonly negativeAlerts = new Counter({
+    name: 'falae_worker_negative_alerts_total',
+    help: 'Total de alertas persistidos para avaliações negativas.',
+    registers: [this.registry],
+  });
 
   constructor() {
     this.registry.setDefaultLabels({ service: 'worker' });
@@ -57,6 +62,10 @@ export class MetricsService {
   analysisStarted(): void {
     this.analysisAttempts.inc();
     this.analysesInProgress.inc();
+  }
+
+  recordNegativeAlert(): void {
+    this.negativeAlerts.inc();
   }
 
   analysisFinished(

@@ -19,6 +19,10 @@ export interface CreateOrGetResult {
   created: boolean;
 }
 
+export type ReviewWithAlert = Prisma.ReviewGetPayload<{
+  include: { alert: true };
+}>;
+
 @Injectable()
 export class ReviewsRepository {
   constructor(private readonly database: DatabaseService) {}
@@ -84,8 +88,11 @@ export class ReviewsRepository {
     });
   }
 
-  findById(id: string): Promise<Review | null> {
-    return this.database.client.review.findUnique({ where: { id } });
+  findById(id: string): Promise<ReviewWithAlert | null> {
+    return this.database.client.review.findUnique({
+      where: { id },
+      include: { alert: true },
+    });
   }
 
   reprocessFailed(id: string): Promise<Review | null> {
@@ -133,7 +140,7 @@ export class ReviewsRepository {
     status?: ReviewStatus;
     skip: number;
     take: number;
-  }): Promise<{ reviews: Review[]; total: number }> {
+  }): Promise<{ reviews: ReviewWithAlert[]; total: number }> {
     const where = options.status ? { status: options.status } : undefined;
     const [reviews, total] = await this.database.client.$transaction([
       this.database.client.review.findMany({
@@ -141,6 +148,7 @@ export class ReviewsRepository {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: options.skip,
         take: options.take,
+        include: { alert: true },
       }),
       this.database.client.review.count({ where }),
     ]);

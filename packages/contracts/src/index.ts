@@ -15,6 +15,13 @@ export interface ReviewAnalysis {
   processed_at: string;
 }
 
+export interface ReviewAlert {
+  id: string;
+  type: 'negative_review';
+  message: string;
+  created_at: string;
+}
+
 export interface ReviewSummary {
   id: string;
   external_id: string;
@@ -24,6 +31,7 @@ export interface ReviewSummary {
   status: ReviewStatus;
   attempts: number;
   analysis: ReviewAnalysis | null;
+  alert: ReviewAlert | null;
   created_at: string;
   processed_at: string | null;
 }

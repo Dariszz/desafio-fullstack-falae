@@ -20,6 +20,10 @@ enum OutboxEventType {
   REVIEW_REPROCESS_REQUESTED
 }
 
+enum AlertType {
+  NEGATIVE_REVIEW
+}
+
 model Review {
   id                  String        @id @default(uuid()) @db.Uuid
   externalId          String        @map("external_id") @db.VarChar(100)
@@ -39,10 +43,23 @@ model Review {
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   processedAt         DateTime?     @map("processed_at") @db.Timestamptz(3)
   outboxEvents        OutboxEvent[]
+  alert               ReviewAlert?
 
   @@unique([companyId, externalId], map: "reviews_company_id_external_id_key")
   @@index([status, createdAt], map: "reviews_status_created_at_idx")
   @@map("reviews")
+}
+
+model ReviewAlert {
+  id        String    @id @default(uuid()) @db.Uuid
+  reviewId  String    @unique(map: "review_alerts_review_id_key") @map("review_id") @db.Uuid
+  type      AlertType @default(NEGATIVE_REVIEW)
+  message   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt], map: "review_alerts_created_at_idx")
+  @@map("review_alerts")
 }
 
 model OutboxEvent {
