@@ -139,6 +139,10 @@ h2 {
   padding: clamp(1.35rem, 3vw, 2.25rem);
 }
 
+.reviews-panel {
+  align-self: stretch;
+}
+
 .section-heading {
   margin-bottom: 1.75rem;
 }
