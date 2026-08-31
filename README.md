@@ -186,6 +186,11 @@ interrompem as tentativas imediatamente. Ao esgotar a política, a avaliação f
 como `failed`, com `attempts`, `last_error` e `processed_at` persistidos. Jobs
 falhos permanecem no Redis para inspeção.
 
+Neste recorte, esse fluxo funciona como tratamento equivalente a uma dead-letter
+queue: a falha permanece visível no banco, o job é preservado no Redis e a
+avaliação pode ser reenviada pelo endpoint ou pela interface. Uma DLQ dedicada,
+com consulta e políticas operacionais próprias, permanece como evolução futura.
+
 ### Estados visíveis
 
 Os estados persistidos são `pending`, `processing`, `completed` e `failed`. A
@@ -305,6 +310,10 @@ npm run lint
 npm run format:check
 npm run build
 ```
+
+O GitHub Actions executa automaticamente formatação, lint, typecheck, testes e
+build. Um job separado também roda a suíte de integração com PostgreSQL e Redis
+reais por meio do Docker Compose.
 
 A suíte automatizada cobre, entre outros cenários:
 
