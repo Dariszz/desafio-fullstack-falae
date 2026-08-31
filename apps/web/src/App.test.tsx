@@ -168,6 +168,13 @@ describe('App', () => {
       (options?.headers as Record<string, string>)['Idempotency-Key'],
     ).toBe(review.external_id);
     expect(await screen.findByText('company-456')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/id da avaliação/i), {
+      target: { value: 'review-order-456' },
+    });
+    expect(
+      screen.queryByText(/avaliação recebida.*segundo plano/i),
+    ).not.toBeInTheDocument();
   });
 
   it('comunica erro de conexão e permite tentar novamente', async () => {

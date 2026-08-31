@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState, type SetStateAction } from 'react';
 import { createReview, type CreateReviewInput } from '../api.js';
 import { messageFrom, type NoticeMessage } from '../review-ui.js';
 
@@ -10,9 +10,20 @@ const EMPTY_FORM: CreateReviewInput = {
 };
 
 export function useReviewForm(afterCreated: () => Promise<void>) {
-  const [form, setForm] = useState<CreateReviewInput>(EMPTY_FORM);
+  const [form, setFormState] = useState<CreateReviewInput>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<NoticeMessage | null>(null);
+
+  useEffect(() => {
+    if (formMessage?.kind !== 'success') return;
+    const timeout = window.setTimeout(() => setFormMessage(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [formMessage]);
+
+  const setForm = useCallback((value: SetStateAction<CreateReviewInput>) => {
+    setFormMessage((current) => (current?.kind === 'success' ? null : current));
+    setFormState(value);
+  }, []);
 
   const submit = useCallback(async () => {
     setSubmitting(true);
@@ -30,7 +41,7 @@ export function useReviewForm(afterCreated: () => Promise<void>) {
           ? 'Essa avaliação já existia e não foi processada novamente.'
           : 'Avaliação recebida. A análise continuará em segundo plano.',
       });
-      setForm(EMPTY_FORM);
+      setFormState(EMPTY_FORM);
       await afterCreated();
     } catch (error) {
       setFormMessage({ kind: 'error', text: messageFrom(error) });
